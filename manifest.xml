@@ -11,12 +11,7 @@
   <ProviderName>AI Dashboard</ProviderName>
   <DefaultLocale>tr-TR</DefaultLocale>
   <DisplayName DefaultValue="AI Dashboard V5"/>
-  <Description DefaultValue="Excel verilerini analiz eder, çoklu dashboard ve grafikler üretir."/>
-
-  <!-- SupportUrl kaldırıldı (isteğe bağlı) -->
-  <AppDomains>
-    <AppDomain>https://ahmetfidan58088-ctrl.github.io</AppDomain>
-  </AppDomains>
+  <Description DefaultValue="Excel verilerini analiz eder."/>
 
   <Hosts>
     <Host Name="Workbook"/>
@@ -70,7 +65,7 @@
         <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Aç"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Excel verilerini analiz eden eklenti."/>
+        <bt:String id="GetStarted.Description" DefaultValue="Excel verilerini analiz eder."/>
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Dashboard panelini açar."/>
       </bt:LongStrings>
     </Resources>
