@@ -25,9 +25,9 @@ async function analyzeData() {
             const headers = usedRange.values[0].map(h => String(h || "").trim());
             const dataRows = usedRange.values.slice(1);
 
-            // Sütun indekslerini bul
+            // Sütun indekslerini bul (temel)
             const colIndex = {
-                product: findColumn(headers, ["urun", "ürün", "product", "model"]),
+                product: findColumn(headers, ["urun", "ürün", "product", "model", "malzeme"]),
                 channel: findColumn(headers, ["kanal", "bayi", "channel", "dealer", "müşteri"]),
                 quantity: findColumn(headers, ["adet", "miktar", "quantity"]),
                 revenue: findColumn(headers, ["tutar", "ciro", "revenue", "satış_tutarı"]),
@@ -42,11 +42,24 @@ async function analyzeData() {
                 safetyIncidents: findColumn(headers, ["güvenlik", "safety", "incident", "olay"])
             };
 
-            // Filtre değerlerini al (tarih yok)
+            // Eğer quantity sütunu yoksa, kanal isimlerine benzeyen sütunları otomatik topla
+            let quantityColumns = [];
+            if (colIndex.quantity === -1) {
+                // Kanal isimleri listesi (sizin verinizdeki kanallar)
+                const possibleChannelNames = ["betaplus", "incehesap", "vizyon", "sinerji", "gamegaraj", "tebilon", "pcokolik", "turkcell", "arçelik", "disti"];
+                for (let i = 0; i < headers.length; i++) {
+                    const lowerHeader = headers[i].toLowerCase();
+                    if (possibleChannelNames.some(name => lowerHeader.includes(name))) {
+                        quantityColumns.push(i);
+                    }
+                }
+            }
+
+            // Filtre değerlerini al
             const selectedChannel = document.getElementById("channelFilter").value;
             const selectedProduct = document.getElementById("productFilter").value;
 
-            // Filtreleme
+            // Filtreleme (önce kanal ve ürün kolonlarına göre)
             let filteredRows = dataRows;
             if (colIndex.channel !== -1 && selectedChannel) {
                 filteredRows = filteredRows.filter(row => String(row[colIndex.channel] || "").trim() === selectedChannel);
@@ -55,11 +68,11 @@ async function analyzeData() {
                 filteredRows = filteredRows.filter(row => String(row[colIndex.product] || "").trim() === selectedProduct);
             }
 
-            // Metrikler ve uyarılar
-            const metrics = calculateMetrics(filteredRows, colIndex);
-            const warnings = collectWarnings(headers, colIndex);
-            const topProducts = getTopProducts(filteredRows, colIndex);
-            const channelPerformance = getChannelPerformance(filteredRows, colIndex);
+            // Metrikleri hesapla (akıllı quantity toplama)
+            const metrics = calculateMetrics(filteredRows, colIndex, quantityColumns);
+            const warnings = collectWarnings(headers, colIndex, quantityColumns);
+            const topProducts = getTopProducts(filteredRows, colIndex, quantityColumns);
+            const channelPerformance = getChannelPerformance(filteredRows, colIndex, quantityColumns);
             const stockRisks = getStockRisk(filteredRows, colIndex);
             const financeSummary = getFinanceSummary(filteredRows, colIndex);
             const constructionData = prepareConstructionData(filteredRows, colIndex);
@@ -75,7 +88,11 @@ async function analyzeData() {
             resultText += `🔍 Başlıklar: ${headers.join(", ")}\n\n`;
             resultText += `📈 GENEL METRİKLER\n`;
             resultText += `   • Toplam Adet: ${metrics.totalQuantity}\n`;
-            resultText += `   • Toplam Ciro: ${metrics.totalRevenue.toLocaleString()} TL\n`;
+            if (metrics.totalRevenue !== undefined) {
+                resultText += `   • Toplam Ciro: ${metrics.totalRevenue.toLocaleString()} TL\n`;
+            } else {
+                resultText += `   • Toplam Ciro: hesaplanamadı (ciro sütunu yok)\n`;
+            }
             resultText += `   • Ortalama Adet: ${metrics.avgQuantity.toFixed(2)}\n`;
             resultText += `   • Aykırı Değer Sayısı: ${metrics.outliers}\n\n`;
 
@@ -86,13 +103,13 @@ async function analyzeData() {
             }
 
             if (topProducts.length) {
-                resultText += `🏆 EN ÇOK SATAN ÜRÜNLER\n`;
+                resultText += `🏆 EN ÇOK SATAN ÜRÜNLER (Adet bazında)\n`;
                 topProducts.forEach(p => { resultText += `   • ${p.product}: ${p.quantity} adet\n`; });
                 resultText += `\n`;
             }
 
             if (channelPerformance.length) {
-                resultText += `📢 KANAL / BAYİ PERFORMANSI\n`;
+                resultText += `📢 KANAL / BAYİ PERFORMANSI (Adet bazında)\n`;
                 channelPerformance.forEach(c => { resultText += `   • ${c.channel}: ${c.quantity} adet\n`; });
                 resultText += `\n`;
             }
@@ -144,8 +161,8 @@ async function analyzeData() {
 
             showResult(resultText);
 
-            // Filtre dropdown'larını güncelle (kullanıcı sonra seçim yapabilir)
-            updateFilterDropdowns(headers, dataRows, colIndex);
+            // Filtre dropdown'larını güncelle (kanal ve ürün)
+            updateFilterDropdowns(headers, dataRows, colIndex, quantityColumns);
 
             await context.sync();
         });
@@ -166,21 +183,36 @@ function findColumn(headers, candidates) {
     return -1;
 }
 
-function calculateMetrics(rows, colIndex) {
-    let totalQuantity = 0, totalRevenue = 0, quantities = [];
+function calculateMetrics(rows, colIndex, quantityColumns) {
+    let totalQuantity = 0;
+    let totalRevenue = 0;
+    let quantities = [];
+
     for (const row of rows) {
+        // Adet hesaplama: ya explicit quantity sütunu varsa, ya da quantityColumns'daki sütunların toplamı
+        let rowQty = 0;
         if (colIndex.quantity !== -1) {
-            const qty = parseFloat(row[colIndex.quantity]);
-            if (!isNaN(qty)) {
-                totalQuantity += qty;
-                quantities.push(qty);
+            const q = parseFloat(row[colIndex.quantity]);
+            if (!isNaN(q)) rowQty = q;
+        } else if (quantityColumns.length) {
+            for (let col of quantityColumns) {
+                const val = parseFloat(row[col]);
+                if (!isNaN(val)) rowQty += val;
             }
         }
+
+        if (!isNaN(rowQty) && rowQty !== 0) {
+            totalQuantity += rowQty;
+            quantities.push(rowQty);
+        }
+
+        // Revenue hesaplama
         if (colIndex.revenue !== -1) {
             const rev = parseFloat(row[colIndex.revenue]);
             if (!isNaN(rev)) totalRevenue += rev;
         }
     }
+
     const avgQuantity = quantities.length ? totalQuantity / quantities.length : 0;
     let outliers = 0;
     if (quantities.length) {
@@ -190,12 +222,17 @@ function calculateMetrics(rows, colIndex) {
         const threshold = 2 * std;
         outliers = quantities.filter(v => Math.abs(v - mean) > threshold).length;
     }
+
     return { totalQuantity, totalRevenue, avgQuantity, outliers };
 }
 
-function collectWarnings(headers, colIndex) {
+function collectWarnings(headers, colIndex, quantityColumns) {
     const warnings = [];
-    if (colIndex.quantity === -1) warnings.push("⚠️ 'Adet' sütunu bulunamadı. Satış adedi analizi yapılamıyor.");
+    if (colIndex.quantity === -1 && quantityColumns.length === 0) {
+        warnings.push("⚠️ 'Adet' sütunu bulunamadı. Kanal bazlı satış sütunları da algılanamadı. Adet analizi yapılamıyor.");
+    } else if (colIndex.quantity === -1 && quantityColumns.length) {
+        warnings.push(`ℹ️ 'Adet' sütunu yok, ancak kanal sütunları (${quantityColumns.map(i => headers[i]).join(", ")}) toplanarak adet hesaplandı.`);
+    }
     if (colIndex.revenue === -1) warnings.push("⚠️ 'Ciro/Tutar' sütunu bulunamadı. Gelir analizi yapılamıyor.");
     if (colIndex.channel === -1) warnings.push("⚠️ 'Kanal/Bayi' sütunu bulunamadı. Kanal performansı gösterilemiyor.");
     if (colIndex.product === -1) warnings.push("⚠️ 'Ürün' sütunu bulunamadı. Ürün bazlı analiz yapılamıyor.");
@@ -204,14 +241,25 @@ function collectWarnings(headers, colIndex) {
     return warnings;
 }
 
-function getTopProducts(rows, colIndex, topN = 5) {
-    if (colIndex.product === -1 || colIndex.quantity === -1) return [];
+function getTopProducts(rows, colIndex, quantityColumns, topN = 5) {
+    if (colIndex.product === -1) return [];
     const productMap = new Map();
     for (const row of rows) {
         const prod = String(row[colIndex.product] || "").trim();
         if (!prod) continue;
-        const qty = parseFloat(row[colIndex.quantity]);
-        if (!isNaN(qty)) productMap.set(prod, (productMap.get(prod) || 0) + qty);
+        let qty = 0;
+        if (colIndex.quantity !== -1) {
+            const q = parseFloat(row[colIndex.quantity]);
+            if (!isNaN(q)) qty = q;
+        } else if (quantityColumns.length) {
+            for (let col of quantityColumns) {
+                const val = parseFloat(row[col]);
+                if (!isNaN(val)) qty += val;
+            }
+        }
+        if (qty > 0) {
+            productMap.set(prod, (productMap.get(prod) || 0) + qty);
+        }
     }
     return Array.from(productMap.entries())
         .map(([product, quantity]) => ({ product, quantity }))
@@ -219,18 +267,37 @@ function getTopProducts(rows, colIndex, topN = 5) {
         .slice(0, topN);
 }
 
-function getChannelPerformance(rows, colIndex) {
-    if (colIndex.channel === -1 || colIndex.quantity === -1) return [];
-    const channelMap = new Map();
-    for (const row of rows) {
-        const channel = String(row[colIndex.channel] || "").trim();
-        if (!channel) continue;
-        const qty = parseFloat(row[colIndex.quantity]);
-        if (!isNaN(qty)) channelMap.set(channel, (channelMap.get(channel) || 0) + qty);
+function getChannelPerformance(rows, colIndex, quantityColumns) {
+    // Kanal performansı için, ya doğrudan channel sütunu varsa ya da quantityColumns'daki sütunların her biri kanal ise
+    if (colIndex.channel !== -1 && colIndex.quantity !== -1) {
+        const channelMap = new Map();
+        for (const row of rows) {
+            const channel = String(row[colIndex.channel] || "").trim();
+            if (!channel) continue;
+            const qty = parseFloat(row[colIndex.quantity]);
+            if (!isNaN(qty)) channelMap.set(channel, (channelMap.get(channel) || 0) + qty);
+        }
+        return Array.from(channelMap.entries())
+            .map(([channel, quantity]) => ({ channel, quantity }))
+            .sort((a,b) => b.quantity - a.quantity);
     }
-    return Array.from(channelMap.entries())
-        .map(([channel, quantity]) => ({ channel, quantity }))
-        .sort((a,b) => b.quantity - a.quantity);
+    // Alternatif: quantityColumns'daki her sütun bir kanaldır ve satır bazında toplamı yok, kanal bazlı toplam yapılır
+    if (quantityColumns.length) {
+        const channelMap = new Map();
+        for (let idx of quantityColumns) {
+            const channelName = headers[idx];
+            let total = 0;
+            for (const row of rows) {
+                const val = parseFloat(row[idx]);
+                if (!isNaN(val)) total += val;
+            }
+            if (total > 0) channelMap.set(channelName, total);
+        }
+        return Array.from(channelMap.entries())
+            .map(([channel, quantity]) => ({ channel, quantity }))
+            .sort((a,b) => b.quantity - a.quantity);
+    }
+    return [];
 }
 
 function getStockRisk(rows, colIndex) {
@@ -336,12 +403,21 @@ function getChartSuggestions(topProducts, channelPerformance, constructionData) 
     return suggestions;
 }
 
-function updateFilterDropdowns(headers, dataRows, colIndex) {
+function updateFilterDropdowns(headers, dataRows, colIndex, quantityColumns) {
+    // Kanal dropdown: ya channel sütunu varsa ondan al, yoksa quantityColumns'daki sütun isimlerini kanal olarak göster
     if (colIndex.channel !== -1) {
         const channels = [...new Set(dataRows.map(row => String(row[colIndex.channel] || "").trim()).filter(v => v))];
         const channelSelect = document.getElementById("channelFilter");
         if (channelSelect) channelSelect.innerHTML = '<option value="">Tümü</option>' + channels.map(c => `<option value="${c}">${c}</option>`).join("");
+    } else if (quantityColumns.length) {
+        // Kanal sütunu yoksa, quantityColumns'daki sütun isimlerini kanal olarak listele
+        const channelSelect = document.getElementById("channelFilter");
+        if (channelSelect) {
+            channelSelect.innerHTML = '<option value="">Tümü</option>' + quantityColumns.map(idx => `<option value="${headers[idx]}">${headers[idx]}</option>`).join("");
+        }
     }
+
+    // Ürün dropdown
     if (colIndex.product !== -1) {
         const products = [...new Set(dataRows.map(row => String(row[colIndex.product] || "").trim()).filter(v => v))];
         const productSelect = document.getElementById("productFilter");
