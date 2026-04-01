@@ -14,7 +14,7 @@
         .card { background-color: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .filter-group { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
         .filter-group label { font-weight: bold; min-width: 80px; }
-        select, input { padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex: 1; }
+        select { padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex: 1; }
         .result { background-color: #e8f0fe; padding: 10px; border-radius: 4px; font-size: 14px; white-space: pre-wrap; }
         .error { background-color: #fde7e9; color: #d13438; border-left: 4px solid #d13438; }
         .hidden { display: none; }
@@ -25,7 +25,7 @@
 <body>
     <div class="container">
         <h2>🤖 AI Dashboard V5</h2>
-        <p>Excel verilerini analiz eder, dashboard özetini bu panelde gösterir.</p>
+        <p>Excel verilerini analiz eder, yorumlar, grafik önerir.</p>
 
         <!-- Filtreler (sadece kanal ve ürün) -->
         <div class="card">
@@ -59,9 +59,6 @@
             <h3>❌ Hata</h3>
             <div id="errorText"></div>
         </div>
-
-        <hr>
-        <p style="font-size:12px; color:#666;">📌 Analiz sonuçları yalnızca bu panelde gösterilir. Excel’e sayfa eklenmez.</p>
     </div>
     <script src="taskpane.js"></script>
 </body>
