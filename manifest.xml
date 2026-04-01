@@ -1,51 +1,57 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<OfficeApp
-  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
-  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
-  xsi:type="TaskPaneApp">
-
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+           xsi:type="TaskPaneApp">
   <Id>2c79b35a-0d62-4f5c-a9b7-5bf5f2221c31</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>AI Dashboard</ProviderName>
   <DefaultLocale>tr-TR</DefaultLocale>
-  <DisplayName DefaultValue="AI Dashboard V5"/>
-  <Description DefaultValue="Excel verilerini analiz eder."/>
-
+  <DisplayName DefaultValue="AI Dashboard V5" />
+  <Description DefaultValue="Excel verilerini analiz eder." />
+  <IconUrl DefaultValue="https://placehold.co/32x32" />
+  <HighResolutionIconUrl DefaultValue="https://placehold.co/80x80" />
   <Hosts>
-    <Host Name="Workbook"/>
+    <Host Name="Workbook" />
   </Hosts>
-
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
+    <SourceLocation DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
   </DefaultSettings>
-
   <Permissions>ReadWriteDocument</Permissions>
-
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
     <Hosts>
       <Host xsi:type="Workbook">
         <DesktopFormFactor>
           <GetStarted>
-            <Title resid="GetStarted.Title"/>
-            <Description resid="GetStarted.Description"/>
-            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
           </GetStarted>
-          <FunctionFile resid="Taskpane.Url"/>
+          <FunctionFile resid="Taskpane.Url" />
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
             <OfficeTab id="TabHome">
               <Group id="AIGroup">
-                <Label resid="GroupLabel"/>
+                <Label resid="GroupLabel" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16" />
+                  <bt:Image size="32" resid="Icon.32" />
+                  <bt:Image size="80" resid="Icon.80" />
+                </Icon>
                 <Control xsi:type="Button" id="ShowTaskpaneButton">
-                  <Label resid="TaskpaneButton.Label"/>
+                  <Label resid="TaskpaneButton.Label" />
                   <Supertip>
-                    <Title resid="TaskpaneButton.Label"/>
-                    <Description resid="TaskpaneButton.Tooltip"/>
+                    <Title resid="TaskpaneButton.Label" />
+                    <Description resid="TaskpaneButton.Tooltip" />
                   </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>ButtonId1</TaskpaneId>
-                    <SourceLocation resid="Taskpane.Url"/>
+                    <SourceLocation resid="Taskpane.Url" />
                   </Action>
                 </Control>
               </Group>
@@ -55,18 +61,23 @@
       </Host>
     </Hosts>
     <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://placehold.co/16x16" />
+        <bt:Image id="Icon.32" DefaultValue="https://placehold.co/32x32" />
+        <bt:Image id="Icon.80" DefaultValue="https://placehold.co/80x80" />
+      </bt:Images>
       <bt:Urls>
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="AI Dashboard V5"/>
-        <bt:String id="GroupLabel" DefaultValue="AI Dashboard"/>
-        <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Aç"/>
+        <bt:String id="GetStarted.Title" DefaultValue="AI Dashboard V5" />
+        <bt:String id="GroupLabel" DefaultValue="AI Dashboard" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Aç" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Excel verilerini analiz eder."/>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Dashboard panelini açar."/>
+        <bt:String id="GetStarted.Description" DefaultValue="Excel verilerini analiz eder." />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Dashboard panelini açar." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
