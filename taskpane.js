@@ -1,13 +1,11 @@
-// Office.js hazır
 Office.onReady((info) => {
-    console.log("Office.js hazır. Host:", info.host);
+    console.log("Office.js ready. Host:", info.host);
     const analyzeBtn = document.getElementById("analyzeBtn");
     if (analyzeBtn) analyzeBtn.addEventListener("click", analyzeData);
-    else console.error("Buton bulunamadı!");
+    else console.error("Button not found");
 });
 
 async function analyzeData() {
-    console.log("Analiz başlıyor...");
     showLoading(true);
     hideResult();
     hideError();
@@ -27,9 +25,8 @@ async function analyzeData() {
             const headers = usedRange.values[0].map(h => String(h || "").trim());
             const dataRows = usedRange.values.slice(1);
 
-            // Sütun indekslerini bul (genişletilmiş alias listesi)
+            // Sütun indekslerini bul
             const colIndex = {
-                date: findColumn(headers, ["tarih", "date", "faturalama", "islem_tarihi"]),
                 product: findColumn(headers, ["urun", "ürün", "product", "model"]),
                 channel: findColumn(headers, ["kanal", "bayi", "channel", "dealer", "müşteri"]),
                 quantity: findColumn(headers, ["adet", "miktar", "quantity"]),
@@ -38,35 +35,19 @@ async function analyzeData() {
                 cost: findColumn(headers, ["maliyet", "cost", "gider"]),
                 budget: findColumn(headers, ["bütçe", "butce", "budget"]),
                 actual: findColumn(headers, ["gerçekleşen", "actual"]),
-                // İnşaat dashboard için ek sütunlar
                 region: findColumn(headers, ["bölge", "region", "bolge"]),
                 status: findColumn(headers, ["durum", "status", "state"]),
                 phase: findColumn(headers, ["faz", "phase", "aşama"]),
                 projectType: findColumn(headers, ["proje tipi", "project type", "tip"]),
-                contractor: findColumn(headers, ["yüklenici", "contractor", "firma"]),
-                department: findColumn(headers, ["departman", "department"]),
-                safetyIncidents: findColumn(headers, ["güvenlik", "safety", "incident", "olay"]),
+                safetyIncidents: findColumn(headers, ["güvenlik", "safety", "incident", "olay"])
             };
 
             // Filtre değerlerini al
-            const startDateStr = document.getElementById("dateStart").value;
-            const endDateStr = document.getElementById("dateEnd").value;
             const selectedChannel = document.getElementById("channelFilter").value;
             const selectedProduct = document.getElementById("productFilter").value;
 
             // Filtreleme
             let filteredRows = dataRows;
-            if (colIndex.date !== -1 && (startDateStr || endDateStr)) {
-                filteredRows = filteredRows.filter(row => {
-                    const cellDate = parseDate(row[colIndex.date]);
-                    if (!cellDate) return true;
-                    const start = startDateStr ? parseDate(startDateStr) : null;
-                    const end = endDateStr ? parseDate(endDateStr) : null;
-                    if (start && cellDate < start) return false;
-                    if (end && cellDate > end) return false;
-                    return true;
-                });
-            }
             if (colIndex.channel !== -1 && selectedChannel) {
                 filteredRows = filteredRows.filter(row => String(row[colIndex.channel] || "").trim() === selectedChannel);
             }
@@ -74,41 +55,28 @@ async function analyzeData() {
                 filteredRows = filteredRows.filter(row => String(row[colIndex.product] || "").trim() === selectedProduct);
             }
 
-            // Metrikler
+            // Metrikler ve uyarılar
             const metrics = calculateMetrics(filteredRows, colIndex);
+            const warnings = collectWarnings(filteredRows, colIndex, headers);
             const topProducts = getTopProducts(filteredRows, colIndex);
-            const dealerPerformance = getDealerPerformance(filteredRows, colIndex);
-            const stockRisk = getStockRisk(filteredRows, colIndex);
+            const channelPerformance = getChannelPerformance(filteredRows, colIndex);
+            const stockRisks = getStockRisk(filteredRows, colIndex);
             const financeSummary = getFinanceSummary(filteredRows, colIndex);
-            
-            // İnşaat verilerini hazırla
             const constructionData = prepareConstructionData(filteredRows, colIndex);
 
-            // Dashboard sayfaları
-            await createExecutiveDashboard(context, metrics, topProducts, dealerPerformance);
-            await createSalesDashboard(context, metrics, topProducts);
-            await createStockDashboard(context, stockRisk);
-            await createFinanceDashboard(context, financeSummary);
-            await createDealerDashboard(context, dealerPerformance);
-            
-            // Yeni: İnşaat dashboard (eğer veri varsa)
-            if (constructionData.hasData) {
-                await createConstructionDashboard(context, constructionData);
-            }
+            // Tek dashboard sayfasını oluştur / güncelle
+            await createExecutiveDashboard(context, metrics, topProducts, channelPerformance, stockRisks, financeSummary, warnings, constructionData);
 
-            // Filtre dropdown'larını güncelle
+            // Filtre dropdown'larını güncelle (kullanıcı sonra seçim yapabilir)
             updateFilterDropdowns(headers, dataRows, colIndex);
 
             // Task pane özeti
             let resultText = `✅ Analiz tamamlandı!\n\n📄 Sayfa: ${sheet.name}\n📍 Aralık: ${usedRange.address}\n📊 Satır: ${usedRange.rowCount}\n📈 Sütun: ${usedRange.columnCount}\n\n`;
             resultText += `🔍 Başlıklar: ${headers.join(", ")}\n\n`;
             resultText += `📊 Toplam Adet: ${metrics.totalQuantity}\n💰 Toplam Ciro: ${metrics.totalRevenue.toLocaleString()} TL\n`;
-            resultText += `📉 Ortalama Adet: ${metrics.avgQuantity.toFixed(2)}\n🏆 En Çok Satan Ürün: ${topProducts[0]?.product || "-"} (${topProducts[0]?.quantity || 0} adet)\n`;
+            resultText += `📉 Ortalama Adet: ${metrics.avgQuantity.toFixed(2)}\n🏆 En Çok Satın Ürün: ${topProducts[0]?.product || "-"} (${topProducts[0]?.quantity || 0} adet)\n`;
             resultText += `⚠️ Aykırı Değer Sayısı: ${metrics.outliers}\n\n`;
-            resultText += `📌 Dashboard sayfaları oluşturuldu: EXECUTIVE_DASHBOARD, SALES_DASHBOARD, STOCK_DASHBOARD, FINANCE_DASHBOARD, DEALER_DASHBOARD`;
-            if (constructionData.hasData) {
-                resultText += `\n🏗️ CONSTRUCTION_DASHBOARD eklendi (bölge, durum, faz analizleri).`;
-            }
+            resultText += `📌 Tüm analizler "EXECUTIVE_DASHBOARD" sayfasında toplanmıştır.`;
 
             showResult(resultText);
             await context.sync();
@@ -128,22 +96,6 @@ function findColumn(headers, candidates) {
         if (candidates.some(c => h.includes(c))) return i;
     }
     return -1;
-}
-
-function parseDate(value) {
-    if (!value) return null;
-    if (value instanceof Date) return value;
-    const str = String(value);
-    let day, month, year;
-    if (str.includes(".")) {
-        [day, month, year] = str.split(".");
-    } else if (str.includes("-")) {
-        [year, month, day] = str.split("-");
-    } else {
-        return null;
-    }
-    const d = new Date(year, month-1, day);
-    return isNaN(d.getTime()) ? null : d;
 }
 
 function calculateMetrics(rows, colIndex) {
@@ -173,6 +125,17 @@ function calculateMetrics(rows, colIndex) {
     return { totalQuantity, totalRevenue, avgQuantity, outliers };
 }
 
+function collectWarnings(rows, colIndex, headers) {
+    const warnings = [];
+    if (colIndex.quantity === -1) warnings.push("⚠️ 'Adet' sütunu bulunamadı. Satış adedi analizi yapılamayacak.");
+    if (colIndex.revenue === -1) warnings.push("⚠️ 'Ciro/Tutar' sütunu bulunamadı. Gelir analizi yapılamayacak.");
+    if (colIndex.channel === -1) warnings.push("⚠️ 'Kanal/Bayi' sütunu bulunamadı. Kanal performansı gösterilemeyecek.");
+    if (colIndex.product === -1) warnings.push("⚠️ 'Ürün' sütunu bulunamadı. Ürün bazlı analiz yapılamayacak.");
+    if (colIndex.stock === -1) warnings.push("ℹ️ 'Stok' sütunu bulunamadı. Stok riski analizi atlandı.");
+    if (colIndex.budget === -1 || colIndex.actual === -1) warnings.push("ℹ️ Bütçe/Gerçekleşen sütunları eksik. Finans analizi sınırlı olacak.");
+    return warnings;
+}
+
 function getTopProducts(rows, colIndex, topN = 5) {
     if (colIndex.product === -1 || colIndex.quantity === -1) return [];
     const productMap = new Map();
@@ -188,17 +151,17 @@ function getTopProducts(rows, colIndex, topN = 5) {
         .slice(0, topN);
 }
 
-function getDealerPerformance(rows, colIndex) {
+function getChannelPerformance(rows, colIndex) {
     if (colIndex.channel === -1 || colIndex.quantity === -1) return [];
-    const dealerMap = new Map();
+    const channelMap = new Map();
     for (const row of rows) {
-        const dealer = String(row[colIndex.channel] || "").trim();
-        if (!dealer) continue;
+        const channel = String(row[colIndex.channel] || "").trim();
+        if (!channel) continue;
         const qty = parseFloat(row[colIndex.quantity]);
-        if (!isNaN(qty)) dealerMap.set(dealer, (dealerMap.get(dealer) || 0) + qty);
+        if (!isNaN(qty)) channelMap.set(channel, (channelMap.get(channel) || 0) + qty);
     }
-    return Array.from(dealerMap.entries())
-        .map(([dealer, quantity]) => ({ dealer, quantity }))
+    return Array.from(channelMap.entries())
+        .map(([channel, quantity]) => ({ channel, quantity }))
         .sort((a,b) => b.quantity - a.quantity);
 }
 
@@ -209,14 +172,14 @@ function getStockRisk(rows, colIndex) {
         const product = String(row[colIndex.product] || "").trim();
         const stock = parseFloat(row[colIndex.stock]);
         if (product && !isNaN(stock)) {
-            riskMap.push({ product, stock, risk: stock < 20 ? "critical" : (stock < 50 ? "low" : "ok") });
+            riskMap.push({ product, stock, risk: stock < 20 ? "Kritik" : (stock < 50 ? "Düşük" : "Yeterli") });
         }
     }
-    return riskMap.filter(r => r.risk !== "ok").sort((a,b) => a.stock - b.stock);
+    return riskMap.filter(r => r.risk !== "Yeterli").sort((a,b) => a.stock - b.stock);
 }
 
 function getFinanceSummary(rows, colIndex) {
-    if (colIndex.budget === -1 || colIndex.actual === -1) return { totalBudget: 0, totalActual: 0, variance: 0 };
+    if (colIndex.budget === -1 || colIndex.actual === -1) return null;
     let totalBudget = 0, totalActual = 0;
     for (const row of rows) {
         const b = parseFloat(row[colIndex.budget]);
@@ -227,27 +190,11 @@ function getFinanceSummary(rows, colIndex) {
     return { totalBudget, totalActual, variance: totalActual - totalBudget };
 }
 
-// === İnşaat verilerini hazırlama ===
 function prepareConstructionData(rows, colIndex) {
-    const result = {
-        hasData: false,
-        totalProjects: rows.length,
-        totalBudget: 0,
-        totalCost: 0,
-        totalSafetyIncidents: 0,
-        regionStats: new Map(),   // region -> { count, budget, cost }
-        statusStats: new Map(),
-        phaseStats: new Map(),
-        projectTypeStats: new Map(),
-        contractorStats: new Map(),
-        departmentStats: new Map(),
-    };
-
-    let budgetFound = false, costFound = false, safetyFound = false;
-
+    const result = { hasData: false, regionStats: new Map(), statusStats: new Map(), phaseStats: new Map(), projectTypeStats: new Map() };
+    let budgetFound = false, costFound = false;
     for (const row of rows) {
-        let budget = 0, cost = 0, safety = 0;
-
+        let budget = 0, cost = 0;
         if (colIndex.budget !== -1) {
             const b = parseFloat(row[colIndex.budget]);
             if (!isNaN(b)) { budget = b; budgetFound = true; }
@@ -256,16 +203,6 @@ function prepareConstructionData(rows, colIndex) {
             const c = parseFloat(row[colIndex.cost]);
             if (!isNaN(c)) { cost = c; costFound = true; }
         }
-        if (colIndex.safetyIncidents !== -1) {
-            const s = parseFloat(row[colIndex.safetyIncidents]);
-            if (!isNaN(s)) { safety = s; safetyFound = true; }
-        }
-
-        result.totalBudget += budget;
-        result.totalCost += cost;
-        result.totalSafetyIncidents += safety;
-
-        // Bölge
         if (colIndex.region !== -1) {
             const region = String(row[colIndex.region] || "").trim();
             if (region) {
@@ -276,226 +213,169 @@ function prepareConstructionData(rows, colIndex) {
                 result.regionStats.set(region, stats);
             }
         }
-
-        // Durum
         if (colIndex.status !== -1) {
             const status = String(row[colIndex.status] || "").trim();
             if (status) {
-                const stats = result.statusStats.get(status) || { count: 0, budget: 0, cost: 0 };
+                const stats = result.statusStats.get(status) || { count: 0 };
                 stats.count++;
-                stats.budget += budget;
-                stats.cost += cost;
                 result.statusStats.set(status, stats);
             }
         }
-
-        // Faz
         if (colIndex.phase !== -1) {
             const phase = String(row[colIndex.phase] || "").trim();
             if (phase) {
-                const stats = result.phaseStats.get(phase) || { count: 0, budget: 0, cost: 0 };
+                const stats = result.phaseStats.get(phase) || { count: 0 };
                 stats.count++;
-                stats.budget += budget;
-                stats.cost += cost;
                 result.phaseStats.set(phase, stats);
             }
         }
-
-        // Proje tipi
         if (colIndex.projectType !== -1) {
             const type = String(row[colIndex.projectType] || "").trim();
             if (type) {
-                const stats = result.projectTypeStats.get(type) || { count: 0, budget: 0, cost: 0 };
+                const stats = result.projectTypeStats.get(type) || { count: 0, cost: 0 };
                 stats.count++;
-                stats.budget += budget;
                 stats.cost += cost;
                 result.projectTypeStats.set(type, stats);
             }
         }
-
-        // Yüklenici
-        if (colIndex.contractor !== -1) {
-            const con = String(row[colIndex.contractor] || "").trim();
-            if (con) {
-                const stats = result.contractorStats.get(con) || { count: 0, budget: 0, cost: 0 };
-                stats.count++;
-                stats.budget += budget;
-                stats.cost += cost;
-                result.contractorStats.set(con, stats);
-            }
-        }
-
-        // Departman
-        if (colIndex.department !== -1) {
-            const dept = String(row[colIndex.department] || "").trim();
-            if (dept) {
-                const stats = result.departmentStats.get(dept) || { count: 0, budget: 0, cost: 0 };
-                stats.count++;
-                stats.budget += budget;
-                stats.cost += cost;
-                result.departmentStats.set(dept, stats);
-            }
-        }
     }
-
     result.hasData = (budgetFound || costFound) && (result.regionStats.size > 0 || result.statusStats.size > 0 || result.phaseStats.size > 0);
     return result;
 }
 
-// === İnşaat Dashboard oluşturma ===
-async function createConstructionDashboard(context, data) {
-    let sheet = getOrCreateSheet(context, "CONSTRUCTION_DASHBOARD");
+// ========== TEK DASHBOARD SAYFASI ==========
+async function createExecutiveDashboard(context, metrics, topProducts, channelPerformance, stockRisks, finance, warnings, constructionData) {
+    let sheet = getOrCreateSheet(context, "EXECUTIVE_DASHBOARD");
     await context.sync();
 
-    // Temizlik
+    // Sayfayı temizle
     const used = sheet.getUsedRange();
     if (used) used.clear();
 
     // Başlık
-    sheet.getRange("A1").values = [["🏗️ CONSTRUCTION DASHBOARD"]];
+    sheet.getRange("A1").values = [["📊 EXECUTIVE DASHBOARD – AI Özet Analiz"]];
     sheet.getRange("A1").format.font.bold = true;
-    sheet.getRange("A1").format.font.size = 18;
-    sheet.getRange("A1").format.font.color = "#2E6B8F";
+    sheet.getRange("A1").format.font.size = 16;
+
+    let row = 3;
 
     // KPI'lar
     const kpis = [
-        ["# of Project", data.totalProjects],
-        ["Budget", data.totalBudget],
-        ["Cost", data.totalCost],
-        ["Cost Per Project", data.totalProjects ? data.totalCost / data.totalProjects : 0],
-        ["Safety Incidents", data.totalSafetyIncidents]
+        ["Toplam Adet", metrics.totalQuantity],
+        ["Toplam Ciro (TL)", metrics.totalRevenue],
+        ["Ortalama Adet", metrics.avgQuantity.toFixed(2)],
+        ["Aykırı Değer Sayısı", metrics.outliers]
     ];
-    const kpiRange = sheet.getRangeByIndexes(2, 0, kpis.length, 2);
+    const kpiRange = sheet.getRangeByIndexes(row, 0, kpis.length, 2);
     kpiRange.values = kpis;
     kpiRange.format.font.bold = true;
+    row += kpis.length + 2;
 
-    // Bölge dağılımı
-    if (data.regionStats.size > 0) {
-        sheet.getRange("E1").values = [["# of Project by Region"]];
-        const regions = Array.from(data.regionStats.entries());
-        const regionData = regions.map(([region, stats]) => [region, stats.count]);
-        const regionRange = sheet.getRangeByIndexes(2, 4, regionData.length, 2);
-        regionRange.values = regionData;
-        // Pasta grafiği
-        const chart = sheet.charts.add("pie", regionRange, "auto");
-        chart.title.text = "Project by Region";
-        chart.legend.position = "right";
+    // Uyarılar
+    if (warnings.length) {
+        sheet.getRange(row, 0).values = [["⚠️ Uyarılar / Eksikler"]];
+        sheet.getRange(row, 0).format.font.bold = true;
+        row++;
+        for (const w of warnings) {
+            sheet.getRange(row, 0).values = [[w]];
+            row++;
+        }
+        row++;
     }
 
-    // Durum dağılımı
-    if (data.statusStats.size > 0) {
-        sheet.getRange("H1").values = [["# of Project by Status"]];
-        const statuses = Array.from(data.statusStats.entries());
-        const statusData = statuses.map(([status, stats]) => [status, stats.count]);
-        const statusRange = sheet.getRangeByIndexes(2, 7, statusData.length, 2);
-        statusRange.values = statusData;
-        const chart = sheet.charts.add("columnClustered", statusRange, "auto");
-        chart.title.text = "Project Status";
-    }
-
-    // Faz dağılımı
-    if (data.phaseStats.size > 0) {
-        sheet.getRange("K1").values = [["# of Project by Phase"]];
-        const phases = Array.from(data.phaseStats.entries());
-        const phaseData = phases.map(([phase, stats]) => [phase, stats.count]);
-        const phaseRange = sheet.getRangeByIndexes(2, 10, phaseData.length, 2);
-        phaseRange.values = phaseData;
-        const chart = sheet.charts.add("barClustered", phaseRange, "auto");
-        chart.title.text = "Project Phase";
-    }
-
-    // Proje tipine göre maliyet
-    if (data.projectTypeStats.size > 0) {
-        sheet.getRange("N1").values = [["Cost Per Project by Type"]];
-        const types = Array.from(data.projectTypeStats.entries());
-        const typeData = types.map(([type, stats]) => [type, stats.cost / stats.count]);
-        const typeRange = sheet.getRangeByIndexes(2, 13, typeData.length, 2);
-        typeRange.values = typeData;
-        const chart = sheet.charts.add("columnClustered", typeRange, "auto");
-        chart.title.text = "Avg Cost by Project Type";
-    }
-
-    // Açıklama
-    sheet.getRange("A30").values = [["Not: Dashboard, verilerinizdeki bölge, durum, faz, proje tipi sütunlarına göre otomatik oluşturulmuştur."]];
-    sheet.getRange("A30").format.font.italic = true;
-    sheet.getRange("A30").format.font.size = 9;
-
-    sheet.getRange("A:O").format.autofitColumns();
-}
-
-// Diğer dashboard fonksiyonları
-async function createExecutiveDashboard(context, metrics, topProducts, dealerPerformance) {
-    let sheet = getOrCreateSheet(context, "EXECUTIVE_DASHBOARD");
-    await context.sync();
-    sheet.getRange("A1").values = [["EXECUTIVE DASHBOARD"]];
-    sheet.getRange("A1").format.font.bold = true;
-    const kpis = [["Total Revenue (TL)", metrics.totalRevenue], ["Total Quantity", metrics.totalQuantity], ["Avg Quantity", metrics.avgQuantity.toFixed(2)], ["Outliers", metrics.outliers]];
-    sheet.getRangeByIndexes(2, 0, kpis.length, 2).values = kpis;
+    // Top ürünler (grafik önerisiyle)
     if (topProducts.length) {
-        sheet.getRange("E1").values = [["Top 5 Products"]];
-        sheet.getRangeByIndexes(2, 4, topProducts.length, 2).values = topProducts.map(p => [p.product, p.quantity]);
-    }
-    if (dealerPerformance.length) {
-        sheet.getRange("H1").values = [["Dealer Performance"]];
-        sheet.getRangeByIndexes(2, 7, dealerPerformance.length, 2).values = dealerPerformance.map(d => [d.dealer, d.quantity]);
-        const chart = sheet.charts.add("columnClustered", sheet.getRange("H2").getExtendedRange(dealerPerformance.length, 2), "auto");
-        chart.title.text = "Dealer Performance";
-    }
-    sheet.getRange("A:J").format.autofitColumns();
-}
-
-async function createSalesDashboard(context, metrics, topProducts) {
-    let sheet = getOrCreateSheet(context, "SALES_DASHBOARD");
-    await context.sync();
-    sheet.getRange("A1").values = [["SALES DASHBOARD"]];
-    sheet.getRange("A1").format.font.bold = true;
-    sheet.getRange("A3").values = [["Total Revenue", metrics.totalRevenue]];
-    sheet.getRange("A4").values = [["Total Quantity", metrics.totalQuantity]];
-    if (topProducts.length) {
-        sheet.getRange("A6").values = [["Top Products"]];
-        const prodRange = sheet.getRangeByIndexes(6, 0, topProducts.length, 2);
-        prodRange.values = topProducts.map(p => [p.product, p.quantity]);
-        const chart = sheet.charts.add("columnClustered", sheet.getRange("A7").getExtendedRange(topProducts.length, 2), "auto");
+        sheet.getRange(row, 0).values = [["🏆 En Çok Satan Ürünler (Grafik Önerisi: Sütun Grafik)"]];
+        sheet.getRange(row, 0).format.font.bold = true;
+        row++;
+        const topRange = sheet.getRangeByIndexes(row, 0, topProducts.length, 2);
+        topRange.values = topProducts.map(p => [p.product, p.quantity]);
+        // Grafik ekle
+        const chart = sheet.charts.add("columnClustered", topRange, "auto");
         chart.title.text = "Top Selling Products";
+        chart.legend.position = "bottom";
+        row += topProducts.length + 2;
     }
-}
 
-async function createStockDashboard(context, stockRisk) {
-    let sheet = getOrCreateSheet(context, "STOCK_DASHBOARD");
-    await context.sync();
-    sheet.getRange("A1").values = [["STOCK DASHBOARD - Riskli Ürünler"]];
-    sheet.getRange("A1").format.font.bold = true;
-    if (stockRisk.length) {
-        sheet.getRangeByIndexes(2, 0, stockRisk.length, 3).values = stockRisk.map(r => [r.product, r.stock, r.risk]);
-    } else {
-        sheet.getRange("A3").values = [["Riskli stok bulunmamaktadır."]];
+    // Kanal performansı
+    if (channelPerformance.length) {
+        sheet.getRange(row, 0).values = [["📢 Kanal / Bayi Performansı (Grafik Önerisi: Pasta veya Sütun)"]];
+        sheet.getRange(row, 0).format.font.bold = true;
+        row++;
+        const channelRange = sheet.getRangeByIndexes(row, 0, channelPerformance.length, 2);
+        channelRange.values = channelPerformance.map(c => [c.channel, c.quantity]);
+        const chart = sheet.charts.add("pie", channelRange, "auto");
+        chart.title.text = "Channel Distribution";
+        chart.legend.position = "right";
+        row += channelPerformance.length + 2;
     }
-    sheet.getRange("A:C").format.autofitColumns();
-}
 
-async function createFinanceDashboard(context, finance) {
-    let sheet = getOrCreateSheet(context, "FINANCE_DASHBOARD");
-    await context.sync();
-    sheet.getRange("A1").values = [["FINANCE DASHBOARD"]];
-    sheet.getRange("A1").format.font.bold = true;
-    sheet.getRange("A3").values = [["Total Budget", finance.totalBudget]];
-    sheet.getRange("A4").values = [["Total Actual", finance.totalActual]];
-    sheet.getRange("A5").values = [["Variance", finance.variance]];
-    if (finance.variance > 0) sheet.getRange("A5").format.font.color = "green";
-    else if (finance.variance < 0) sheet.getRange("A5").format.font.color = "red";
-}
-
-async function createDealerDashboard(context, dealerPerformance) {
-    let sheet = getOrCreateSheet(context, "DEALER_DASHBOARD");
-    await context.sync();
-    sheet.getRange("A1").values = [["DEALER PERFORMANCE"]];
-    sheet.getRange("A1").format.font.bold = true;
-    if (dealerPerformance.length) {
-        const dealerRange = sheet.getRangeByIndexes(2, 0, dealerPerformance.length, 2);
-        dealerRange.values = dealerPerformance.map(d => [d.dealer, d.quantity]);
-        const chart = sheet.charts.add("barClustered", sheet.getRange("A3").getExtendedRange(dealerPerformance.length, 2), "auto");
-        chart.title.text = "Dealer Performance";
+    // Stok riski
+    if (stockRisks.length) {
+        sheet.getRange(row, 0).values = [["⚠️ Stok Riskli Ürünler (Kritik / Düşük)"]];
+        sheet.getRange(row, 0).format.font.bold = true;
+        row++;
+        sheet.getRangeByIndexes(row, 0, stockRisks.length, 3).values = stockRisks.map(r => [r.product, r.stock, r.risk]);
+        row += stockRisks.length + 2;
     }
+
+    // Finans
+    if (finance) {
+        sheet.getRange(row, 0).values = [["💰 Bütçe vs Gerçekleşen"]];
+        sheet.getRange(row, 0).format.font.bold = true;
+        row++;
+        sheet.getRange(row, 0).values = [["Toplam Bütçe", finance.totalBudget]];
+        sheet.getRange(row+1, 0).values = [["Toplam Gerçekleşen", finance.totalActual]];
+        sheet.getRange(row+2, 0).values = [["Varyans", finance.variance]];
+        if (finance.variance > 0) sheet.getRange(row+2, 1).format.font.color = "green";
+        else if (finance.variance < 0) sheet.getRange(row+2, 1).format.font.color = "red";
+        row += 5;
+    }
+
+    // İnşaat projesi verisi varsa
+    if (constructionData.hasData) {
+        sheet.getRange(row, 0).values = [["🏗️ İnşaat Projesi Analizi"]];
+        sheet.getRange(row, 0).format.font.bold = true;
+        row++;
+
+        if (constructionData.regionStats.size) {
+            sheet.getRange(row, 0).values = [["Bölgelere Göre Proje Sayısı (Grafik Önerisi: Pasta)"]];
+            row++;
+            const regionData = Array.from(constructionData.regionStats.entries()).map(([r, s]) => [r, s.count]);
+            const regionRange = sheet.getRangeByIndexes(row, 0, regionData.length, 2);
+            regionRange.values = regionData;
+            const chart = sheet.charts.add("pie", regionRange, "auto");
+            chart.title.text = "Projects by Region";
+            row += regionData.length + 2;
+        }
+
+        if (constructionData.statusStats.size) {
+            sheet.getRange(row, 0).values = [["Proje Durumları (Grafik Önerisi: Sütun)"]];
+            row++;
+            const statusData = Array.from(constructionData.statusStats.entries()).map(([s, st]) => [s, st.count]);
+            const statusRange = sheet.getRangeByIndexes(row, 0, statusData.length, 2);
+            statusRange.values = statusData;
+            const chart = sheet.charts.add("columnClustered", statusRange, "auto");
+            chart.title.text = "Project Status";
+            row += statusData.length + 2;
+        }
+
+        if (constructionData.phaseStats.size) {
+            sheet.getRange(row, 0).values = [["Proje Fazları (Grafik Önerisi: Çubuk)"]];
+            row++;
+            const phaseData = Array.from(constructionData.phaseStats.entries()).map(([p, st]) => [p, st.count]);
+            const phaseRange = sheet.getRangeByIndexes(row, 0, phaseData.length, 2);
+            phaseRange.values = phaseData;
+            const chart = sheet.charts.add("barClustered", phaseRange, "auto");
+            chart.title.text = "Project Phase";
+            row += phaseData.length + 2;
+        }
+    }
+
+    // Son not
+    sheet.getRange(row, 0).values = [["💡 Not: Grafikler otomatik oluşturulmuştur. Dilerseniz üzerlerine tıklayarak düzenleyebilirsiniz."]];
+    sheet.getRange(row, 0).format.font.italic = true;
+    sheet.getRange("A:J").format.autofitColumns();
 }
 
 function getOrCreateSheet(context, sheetName) {
