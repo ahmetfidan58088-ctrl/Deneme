@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Dashboard V5</title>
+    <title>AI Dashboard V6</title>
     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f5f5f5; }
@@ -12,9 +12,6 @@
         button:hover { background-color: #005a9e; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         .card { background-color: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .filter-group { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
-        .filter-group label { font-weight: bold; min-width: 80px; }
-        select { padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex: 1; }
         .result { background-color: #e8f0fe; padding: 10px; border-radius: 4px; font-size: 14px; white-space: pre-wrap; }
         .error { background-color: #fde7e9; color: #d13438; border-left: 4px solid #d13438; }
         .hidden { display: none; }
@@ -24,30 +21,13 @@
 </head>
 <body>
     <div class="container">
-        <h2>🤖 AI Dashboard V5</h2>
-        <p>Excel verilerini analiz eder, yorumlar, grafik önerir.</p>
+        <h2>🤖 AI Dashboard V6</h2>
+        <p>Excel verilerini analiz eder, kalite raporu ve dashboard oluşturur.</p>
 
-        <!-- Filtreler (sadece kanal ve ürün) -->
-        <div class="card">
-            <h3>🔍 Filtreler</h3>
-            <div class="filter-group">
-                <label>Kanal / Bayi:</label>
-                <select id="channelFilter">
-                    <option value="">Tümü</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Ürün Grubu:</label>
-                <select id="productFilter">
-                    <option value="">Tümü</option>
-                </select>
-            </div>
-        </div>
-
-        <button id="analyzeBtn">📊 Veriyi Analiz Et</button>
+        <button id="analyzeBtn">📊 Analiz Başlat</button>
         
         <div id="loading" class="card hidden">
-            <p>⏳ Analiz yapılıyor... Lütfen bekleyin.</p>
+            <p>⏳ Analiz yapılıyor... Lütfen bekleyin. Bu işlem birkaç saniye sürebilir.</p>
         </div>
         
         <div id="resultArea" class="card hidden">
@@ -59,6 +39,9 @@
             <h3>❌ Hata</h3>
             <div id="errorText"></div>
         </div>
+
+        <hr>
+        <p style="font-size:12px; color:#666;">📌 Analiz sonucunda şu sayfalar oluşturulacaktır: <strong>00_Executive, 01_Sales, 02_Stock, 03_Finance, 04_Channel, 05_Product, 06_DataQuality</strong></p>
     </div>
     <script src="taskpane.js"></script>
 </body>
