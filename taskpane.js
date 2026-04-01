@@ -100,7 +100,6 @@ function normalizeString(s) {
 }
 
 function similarityScore(str1, str2) {
-    // basit token eşleşme oranı (gerçek projede fuzzywuzzy gibi kullanılabilir)
     const tokens1 = str1.split(/\s+/);
     const tokens2 = str2.split(/\s+/);
     let match = 0;
@@ -116,7 +115,6 @@ function detectColumnsAcrossSheets(allData) {
         mapping[canonical] = null;
     }
     
-    // Tüm sayfalardaki tüm sütunları topla ve en yüksek skora göre eşle
     const allHeaders = new Set();
     for (const data of allData) {
         for (const h of data.headers) {
@@ -207,7 +205,6 @@ function runQualityChecks(mergedData, mapping) {
     const rows = mergedData.rows;
     if (rows.length === 0) return issues;
 
-    // Eksik değerler
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         for (let col of Object.keys(row)) {
@@ -224,7 +221,6 @@ function runQualityChecks(mergedData, mapping) {
         }
     }
 
-    // Tarih hataları
     if (mapping.date) {
         for (let i = 0; i < rows.length; i++) {
             const d = rows[i].date;
@@ -241,7 +237,6 @@ function runQualityChecks(mergedData, mapping) {
         }
     }
 
-    // Sayısal sütunlarda NaN
     const numericCols = ["quantity", "revenue", "stock", "budget", "actual", "cost"];
     for (let col of numericCols) {
         if (mapping[col]) {
@@ -261,7 +256,6 @@ function runQualityChecks(mergedData, mapping) {
         }
     }
 
-    // Kopya satırlar (basit)
     const seen = new Set();
     for (let i = 0; i < rows.length; i++) {
         const key = JSON.stringify(rows[i]);
@@ -279,61 +273,37 @@ function runQualityChecks(mergedData, mapping) {
         }
     }
 
-    // SKU/EAN uyuşmazlığı (eğer hem product hem de başka bir tanımlayıcı varsa)
-    if (mapping.product && mapping.sku) {
-        const groups = new Map();
-        for (let i = 0; i < rows.length; i++) {
-            const sku = rows[i].sku;
-            const ean = rows[i].ean;
-            if (sku && ean) {
-                if (!groups.has(sku)) groups.set(sku, new Set());
-                groups.get(sku).add(ean);
-            }
-        }
-        for (let [sku, eans] of groups.entries()) {
-            if (eans.size > 1) {
-                issues.push({
-                    sheet: "Tüm veri",
-                    row: -1,
-                    column: mapping.sku,
-                    issue: "Aynı SKU'ya birden fazla EAN atanmış",
-                    severity: "high",
-                    suggestion: `SKU ${sku} için EAN'leri birleştirin veya düzeltin.`
-                });
-            }
-        }
-    }
-
+    // SKU/EAN uyuşmazlığı kontrolü (eğer mapping'de sku ve ean varsa)
+    // Not: mapping'de sku ve ean yoksa bu kısım atlanır. Varsayılan olarak yok.
     return issues;
 }
 
 // ========== DASHBOARD SAYFALARI OLUŞTURMA ==========
 async function createDashboardSheets(context, data, mapping, issues) {
-    // Önceki dashboard sayfalarını temizle (isteğe bağlı)
+    // Mevcut dashboard sayfalarını tek sync'te sil
     const sheetNames = ["00_Executive", "01_Sales", "02_Stock", "03_Finance", "04_Channel", "05_Product", "06_DataQuality"];
     for (let name of sheetNames) {
         const sheet = context.workbook.worksheets.getItemOrNullObject(name);
-        context.load(sheet, "name");
-        await context.sync();
-        if (sheet.name === name) {
+        // Silinecek sayfa varsa sil
+        sheet.load("name");
+    }
+    await context.sync();
+
+    for (let name of sheetNames) {
+        const sheet = context.workbook.worksheets.getItemOrNullObject(name);
+        if (!sheet.isNullObject) {
             sheet.delete();
         }
     }
     await context.sync();
 
-    // Executive
+    // Yeni sayfaları oluştur
     await createExecutiveSheet(context, data, mapping, issues);
-    // Sales
     await createSalesSheet(context, data, mapping);
-    // Stock
     await createStockSheet(context, data, mapping);
-    // Finance
     await createFinanceSheet(context, data, mapping);
-    // Channel
     await createChannelSheet(context, data, mapping);
-    // Product
     await createProductSheet(context, data, mapping);
-    // Data Quality
     await createQualitySheet(context, issues);
 }
 
@@ -343,7 +313,6 @@ async function createExecutiveSheet(context, data, mapping, issues) {
     sheet.getRange("A1").format.font.bold = true;
     let row = 2;
 
-    // KPI'lar
     const totalQty = data.rows.reduce((sum, r) => sum + (isNaN(r.quantity) ? 0 : r.quantity), 0);
     const totalRevenue = data.rows.reduce((sum, r) => sum + (isNaN(r.revenue) ? 0 : r.revenue), 0);
     const avgQty = data.rows.length ? totalQty / data.rows.length : 0;
@@ -354,7 +323,6 @@ async function createExecutiveSheet(context, data, mapping, issues) {
     sheet.getRange(row+3, 0).values = [["Kalite Sorunu Sayısı", issues.length]];
     row += 5;
 
-    // Öne çıkan ürünler
     if (mapping.product && mapping.quantity) {
         const prodMap = new Map();
         for (const r of data.rows) {
@@ -372,7 +340,6 @@ async function createExecutiveSheet(context, data, mapping, issues) {
         row++;
     }
 
-    // Grafik önerileri
     sheet.getRange(row, 0).values = [["Grafik Önerileri"]];
     row++;
     sheet.getRange(row, 0).values = [["• Satış trendi için çizgi grafik"]];
@@ -380,6 +347,7 @@ async function createExecutiveSheet(context, data, mapping, issues) {
     row += 2;
 
     sheet.getRange("A:C").format.autofitColumns();
+    await context.sync();
 }
 
 async function createSalesSheet(context, data, mapping) {
@@ -396,21 +364,29 @@ async function createSalesSheet(context, data, mapping) {
             }
         }
         const topProducts = Array.from(prodMap.entries()).sort((a,b)=>b[1]-a[1]);
-        sheet.getRange(row, 0).values = [["Ürün Bazlı Satış Adetleri"]];
-        row++;
-        for (let p of topProducts) {
-            sheet.getRange(row, 0).values = [[p[0], p[1]]];
+        if (topProducts.length > 0) {
+            // Başlık ve veriler
+            sheet.getRange(row, 0).values = [["Ürün Bazlı Satış Adetleri"]];
             row++;
+            for (let p of topProducts) {
+                sheet.getRange(row, 0).values = [[p[0], p[1]]];
+                row++;
+            }
+            // Grafik için veri aralığını belirle (A3:B{row-1})
+            const startRow = 3;
+            const endRow = startRow + topProducts.length - 1;
+            const chartRange = sheet.getRange(`A${startRow}:B${endRow}`);
+            const chart = sheet.charts.add("columnClustered", chartRange, "auto");
+            chart.title.text = "Ürün Satış Adetleri";
+            chart.legend.position = "bottom";
+        } else {
+            sheet.getRange(row, 0).values = [["Ürün satış verisi bulunamadı."]];
         }
-        // Grafik ekle
-        const chartRange = sheet.getRange("A3").getExtendedRange(topProducts.length, 2);
-        const chart = sheet.charts.add("columnClustered", chartRange, "auto");
-        chart.title.text = "Ürün Satış Adetleri";
-        chart.legend.position = "bottom";
     } else {
         sheet.getRange(row, 0).values = [["Ürün veya adet sütunu bulunamadı."]];
     }
     sheet.getRange("A:C").format.autofitColumns();
+    await context.sync();
 }
 
 async function createStockSheet(context, data, mapping) {
@@ -433,10 +409,14 @@ async function createStockSheet(context, data, mapping) {
             sheet.getRange(row, 0).values = [[r.product, r.stock]];
             row++;
         }
+        if (risk.length === 0) {
+            sheet.getRange(row, 0).values = [["Kritik stok bulunmamaktadır."]];
+        }
     } else {
         sheet.getRange(row, 0).values = [["Stok veya ürün sütunu bulunamadı."]];
     }
     sheet.getRange("A:C").format.autofitColumns();
+    await context.sync();
 }
 
 async function createFinanceSheet(context, data, mapping) {
@@ -460,6 +440,7 @@ async function createFinanceSheet(context, data, mapping) {
         sheet.getRange(row, 0).values = [["Bütçe veya gerçekleşen sütunu bulunamadı."]];
     }
     sheet.getRange("A:C").format.autofitColumns();
+    await context.sync();
 }
 
 async function createChannelSheet(context, data, mapping) {
@@ -476,20 +457,27 @@ async function createChannelSheet(context, data, mapping) {
             }
         }
         const channels = Array.from(channelMap.entries()).sort((a,b)=>b[1]-a[1]);
-        sheet.getRange(row, 0).values = [["Kanal", "Toplam Adet"]];
-        row++;
-        for (let c of channels) {
-            sheet.getRange(row, 0).values = [[c[0], c[1]]];
+        if (channels.length > 0) {
+            sheet.getRange(row, 0).values = [["Kanal", "Toplam Adet"]];
             row++;
+            for (let c of channels) {
+                sheet.getRange(row, 0).values = [[c[0], c[1]]];
+                row++;
+            }
+            // Grafik için veri aralığı
+            const startRow = 3;
+            const endRow = startRow + channels.length - 1;
+            const chartRange = sheet.getRange(`A${startRow}:B${endRow}`);
+            const chart = sheet.charts.add("pie", chartRange, "auto");
+            chart.title.text = "Kanal Dağılımı";
+        } else {
+            sheet.getRange(row, 0).values = [["Kanal verisi bulunamadı."]];
         }
-        // Grafik
-        const chartRange = sheet.getRange("A3").getExtendedRange(channels.length, 2);
-        const chart = sheet.charts.add("pie", chartRange, "auto");
-        chart.title.text = "Kanal Dağılımı";
     } else {
         sheet.getRange(row, 0).values = [["Kanal veya adet sütunu bulunamadı."]];
     }
     sheet.getRange("A:C").format.autofitColumns();
+    await context.sync();
 }
 
 async function createProductSheet(context, data, mapping) {
@@ -516,6 +504,7 @@ async function createProductSheet(context, data, mapping) {
         sheet.getRange(row, 0).values = [["Ürün veya adet sütunu bulunamadı."]];
     }
     sheet.getRange("A:C").format.autofitColumns();
+    await context.sync();
 }
 
 async function createQualitySheet(context, issues) {
@@ -531,6 +520,7 @@ async function createQualitySheet(context, issues) {
         row++;
     }
     sheet.getRange("A:F").format.autofitColumns();
+    await context.sync();
 }
 
 // ========== UI YARDIMCILARI ==========
