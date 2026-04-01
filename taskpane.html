@@ -17,7 +17,6 @@
         select, input { padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex: 1; }
         .result { background-color: #e8f0fe; padding: 10px; border-radius: 4px; font-size: 14px; white-space: pre-wrap; }
         .error { background-color: #fde7e9; color: #d13438; border-left: 4px solid #d13438; }
-        .success { background-color: #dff6dd; color: #107c10; border-left: 4px solid #107c10; }
         .hidden { display: none; }
         h3 { margin-top: 0; color: #333; }
         hr { margin: 15px 0; }
@@ -26,16 +25,11 @@
 <body>
     <div class="container">
         <h2>🤖 AI Dashboard V5</h2>
-        <p>Excel verilerini analiz eder, çoklu dashboard sayfaları oluşturur.</p>
+        <p>Excel verilerini analiz eder, dashboard özetini bu panelde gösterir.</p>
 
-        <!-- Filtreler -->
+        <!-- Filtreler (sadece kanal ve ürün) -->
         <div class="card">
             <h3>🔍 Filtreler</h3>
-            <div class="filter-group">
-                <label>Tarih Aralığı:</label>
-                <input type="text" id="dateStart" placeholder="Başlangıç (GG.AA.YYYY)" style="flex:1">
-                <input type="text" id="dateEnd" placeholder="Bitiş (GG.AA.YYYY)" style="flex:1">
-            </div>
             <div class="filter-group">
                 <label>Kanal / Bayi:</label>
                 <select id="channelFilter">
@@ -50,10 +44,10 @@
             </div>
         </div>
 
-        <button id="analyzeBtn">📊 Veriyi Analiz Et (Dashboard Üret)</button>
+        <button id="analyzeBtn">📊 Veriyi Analiz Et</button>
         
         <div id="loading" class="card hidden">
-            <p>⏳ Analiz yapılıyor... Lütfen bekleyin. Dashboard sayfaları oluşturuluyor.</p>
+            <p>⏳ Analiz yapılıyor... Lütfen bekleyin.</p>
         </div>
         
         <div id="resultArea" class="card hidden">
@@ -67,7 +61,7 @@
         </div>
 
         <hr>
-        <p style="font-size:12px; color:#666;">📌 Dashboard sayfaları: <strong>SALES_DASHBOARD, STOCK_DASHBOARD, FINANCE_DASHBOARD, DEALER_DASHBOARD, EXECUTIVE_DASHBOARD, CONSTRUCTION_DASHBOARD</strong> (uygun veri varsa).</p>
+        <p style="font-size:12px; color:#666;">📌 Analiz sonuçları yalnızca bu panelde gösterilir. Excel’e sayfa eklenmez.</p>
     </div>
     <script src="taskpane.js"></script>
 </body>
