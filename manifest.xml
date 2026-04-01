@@ -13,11 +13,7 @@
   <DisplayName DefaultValue="AI Dashboard V5"/>
   <Description DefaultValue="Excel verilerini analiz eder, çoklu dashboard ve grafikler üretir."/>
 
-  <!-- GitHub Pages adresiniz (Deneme repo) -->
-  <IconUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-80.png"/>
-  <SupportUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/support.html"/>
-
+  <!-- SupportUrl kaldırıldı (isteğe bağlı) -->
   <AppDomains>
     <AppDomain>https://ahmetfidan58088-ctrl.github.io</AppDomain>
   </AppDomains>
@@ -64,13 +60,8 @@
       </Host>
     </Hosts>
     <Resources>
-      <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-32.png"/>
-        <bt:Image id="Icon.32" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-32.png"/>
-        <bt:Image id="Icon.80" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-80.png"/>
-      </bt:Images>
       <bt:Urls>
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/support.html"/>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
         <bt:Url id="Taskpane.Url" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
