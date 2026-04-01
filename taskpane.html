@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dashboard V5</title>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 550px; margin: 0 auto; }
+        button { width: 100%; padding: 12px; background-color: #0078d4; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-bottom: 15px; }
+        button:hover { background-color: #005a9e; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .card { background-color: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .filter-group { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+        .filter-group label { font-weight: bold; min-width: 80px; }
+        select, input { padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex: 1; }
+        .result { background-color: #e8f0fe; padding: 10px; border-radius: 4px; font-size: 14px; white-space: pre-wrap; }
+        .error { background-color: #fde7e9; color: #d13438; border-left: 4px solid #d13438; }
+        .success { background-color: #dff6dd; color: #107c10; border-left: 4px solid #107c10; }
+        .hidden { display: none; }
+        h3 { margin-top: 0; color: #333; }
+        hr { margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🤖 AI Dashboard V5</h2>
+        <p>Excel verilerini analiz eder, çoklu dashboard sayfaları oluşturur.</p>
+
+        <!-- Filtreler -->
+        <div class="card">
+            <h3>🔍 Filtreler</h3>
+            <div class="filter-group">
+                <label>Tarih Aralığı:</label>
+                <input type="text" id="dateStart" placeholder="Başlangıç (GG.AA.YYYY)" style="flex:1">
+                <input type="text" id="dateEnd" placeholder="Bitiş (GG.AA.YYYY)" style="flex:1">
+            </div>
+            <div class="filter-group">
+                <label>Kanal / Bayi:</label>
+                <select id="channelFilter">
+                    <option value="">Tümü</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Ürün Grubu:</label>
+                <select id="productFilter">
+                    <option value="">Tümü</option>
+                </select>
+            </div>
+        </div>
+
+        <button id="analyzeBtn">📊 Veriyi Analiz Et (Dashboard Üret)</button>
+        
+        <div id="loading" class="card hidden">
+            <p>⏳ Analiz yapılıyor... Lütfen bekleyin. Dashboard sayfaları oluşturuluyor.</p>
+        </div>
+        
+        <div id="resultArea" class="card hidden">
+            <h3>📈 Analiz Sonucu</h3>
+            <div id="resultText" class="result"></div>
+        </div>
+        
+        <div id="errorArea" class="card hidden error">
+            <h3>❌ Hata</h3>
+            <div id="errorText"></div>
+        </div>
+
+        <hr>
+        <p style="font-size:12px; color:#666;">📌 Dashboard sayfaları: <strong>SALES_DASHBOARD, STOCK_DASHBOARD, FINANCE_DASHBOARD, DEALER_DASHBOARD, EXECUTIVE_DASHBOARD, CONSTRUCTION_DASHBOARD</strong> (uygun veri varsa).</p>
+    </div>
+    <script src="taskpane.js"></script>
+</body>
+</html>
