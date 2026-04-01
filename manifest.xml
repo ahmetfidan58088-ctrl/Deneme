@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+
+  <Id>2c79b35a-0d62-4f5c-a9b7-5bf5f2221c31</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>AI Dashboard</ProviderName>
+  <DefaultLocale>tr-TR</DefaultLocale>
+  <DisplayName DefaultValue="AI Dashboard V5"/>
+  <Description DefaultValue="Excel verilerini analiz eder, çoklu dashboard ve grafikler üretir."/>
+
+  <!-- GitHub Pages adresiniz (Deneme repo) -->
+  <IconUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-80.png"/>
+  <SupportUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/support.html"/>
+
+  <AppDomains>
+    <AppDomain>https://ahmetfidan58088-ctrl.github.io</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Workbook"/>
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title"/>
+            <Description resid="GetStarted.Description"/>
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+          </GetStarted>
+          <FunctionFile resid="Taskpane.Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="AIGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="Button" id="ShowTaskpaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-32.png"/>
+        <bt:Image id="Icon.32" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-32.png"/>
+        <bt:Image id="Icon.80" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icons/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/support.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="AI Dashboard V5"/>
+        <bt:String id="GroupLabel" DefaultValue="AI Dashboard"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Aç"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Excel verilerini analiz eden eklenti."/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Dashboard panelini açar."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
