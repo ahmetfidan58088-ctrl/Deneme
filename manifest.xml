@@ -9,9 +9,10 @@
   <ProviderName>AI Dashboard</ProviderName>
   <DefaultLocale>tr-TR</DefaultLocale>
   <DisplayName DefaultValue="AI Dashboard V6" />
-  <Description DefaultValue="Excel verilerini analiz eder, dashboard ve kalite raporu oluşturur." />
-  <IconUrl DefaultValue="https://placehold.co/32x32" />
-  <HighResolutionIconUrl DefaultValue="https://placehold.co/80x80" />
+  <Description DefaultValue="Excel verilerini analiz eder, dashboard ve kalite raporu olusturur." />
+  <IconUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icon-80.png" />
+  <SupportUrl DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
   <Hosts>
     <Host Name="Workbook" />
   </Hosts>
@@ -33,12 +34,22 @@
             <OfficeTab id="TabHome">
               <Group id="AIGroup">
                 <Label resid="GroupLabel" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
                 <Control xsi:type="Button" id="ShowTaskpaneButton">
                   <Label resid="TaskpaneButton.Label" />
                   <Supertip>
                     <Title resid="TaskpaneButton.Label" />
                     <Description resid="TaskpaneButton.Tooltip" />
                   </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>ButtonId1</TaskpaneId>
                     <SourceLocation resid="Taskpane.Url" />
@@ -51,6 +62,11 @@
       </Host>
     </Hosts>
     <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/icon-80.png" />
+      </bt:Images>
       <bt:Urls>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
         <bt:Url id="Taskpane.Url" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
@@ -58,11 +74,11 @@
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="AI Dashboard V6" />
         <bt:String id="GroupLabel" DefaultValue="AI Dashboard" />
-        <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Aç" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Ac" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Excel verilerini analiz eder." />
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Dashboard panelini açar." />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Dashboard panelini acar." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
