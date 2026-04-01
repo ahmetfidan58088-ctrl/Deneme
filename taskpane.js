@@ -1,438 +1,546 @@
+// ========== ANA MODÜL ==========
 Office.onReady((info) => {
     console.log("Office.js ready. Host:", info.host);
     const analyzeBtn = document.getElementById("analyzeBtn");
-    if (analyzeBtn) analyzeBtn.addEventListener("click", analyzeData);
+    if (analyzeBtn) analyzeBtn.addEventListener("click", analyzeAllSheets);
     else console.error("Button not found");
 });
 
-async function analyzeData() {
+async function analyzeAllSheets() {
     showLoading(true);
     hideResult();
     hideError();
 
     try {
         await Excel.run(async (context) => {
-            const sheet = context.workbook.worksheets.getActiveWorksheet();
-            const usedRange = sheet.getUsedRange();
-            usedRange.load("values, rowCount, columnCount, address");
-            sheet.load("name");
+            const sheets = context.workbook.worksheets;
+            sheets.load("items");
             await context.sync();
 
-            if (!usedRange.values || usedRange.values.length < 2) {
-                throw new Error("Veri bulunamadı! En az bir başlık satırı ve bir veri satırı olmalı.");
-            }
+            const allData = [];
+            for (let i = 0; i < sheets.items.length; i++) {
+                const sheet = sheets.items[i];
+                const usedRange = sheet.getUsedRange();
+                usedRange.load("values");
+                sheet.load("name");
+                await context.sync();
 
-            const headers = usedRange.values[0].map(h => String(h || "").trim());
-            const dataRows = usedRange.values.slice(1);
-
-            // Sütun indekslerini bul (temel)
-            const colIndex = {
-                product: findColumn(headers, ["urun", "ürün", "product", "model", "malzeme"]),
-                channel: findColumn(headers, ["kanal", "bayi", "channel", "dealer", "müşteri"]),
-                quantity: findColumn(headers, ["adet", "miktar", "quantity"]),
-                revenue: findColumn(headers, ["tutar", "ciro", "revenue", "satış_tutarı"]),
-                stock: findColumn(headers, ["stok", "stock", "inventory"]),
-                cost: findColumn(headers, ["maliyet", "cost", "gider"]),
-                budget: findColumn(headers, ["bütçe", "butce", "budget"]),
-                actual: findColumn(headers, ["gerçekleşen", "actual"]),
-                region: findColumn(headers, ["bölge", "region", "bolge"]),
-                status: findColumn(headers, ["durum", "status", "state"]),
-                phase: findColumn(headers, ["faz", "phase", "aşama"]),
-                projectType: findColumn(headers, ["proje tipi", "project type", "tip"]),
-                safetyIncidents: findColumn(headers, ["güvenlik", "safety", "incident", "olay"])
-            };
-
-            // Eğer quantity sütunu yoksa, kanal isimlerine benzeyen sütunları otomatik topla
-            let quantityColumns = [];
-            if (colIndex.quantity === -1) {
-                // Kanal isimleri listesi (sizin verinizdeki kanallar)
-                const possibleChannelNames = ["betaplus", "incehesap", "vizyon", "sinerji", "gamegaraj", "tebilon", "pcokolik", "turkcell", "arçelik", "disti"];
-                for (let i = 0; i < headers.length; i++) {
-                    const lowerHeader = headers[i].toLowerCase();
-                    if (possibleChannelNames.some(name => lowerHeader.includes(name))) {
-                        quantityColumns.push(i);
-                    }
+                if (usedRange.values && usedRange.values.length > 1) {
+                    const headers = usedRange.values[0].map(h => String(h || "").trim());
+                    const rows = usedRange.values.slice(1);
+                    allData.push({ sheetName: sheet.name, headers, rows });
                 }
             }
 
-            // Filtre değerlerini al
-            const selectedChannel = document.getElementById("channelFilter").value;
-            const selectedProduct = document.getElementById("productFilter").value;
-
-            // Filtreleme (önce kanal ve ürün kolonlarına göre)
-            let filteredRows = dataRows;
-            if (colIndex.channel !== -1 && selectedChannel) {
-                filteredRows = filteredRows.filter(row => String(row[colIndex.channel] || "").trim() === selectedChannel);
-            }
-            if (colIndex.product !== -1 && selectedProduct) {
-                filteredRows = filteredRows.filter(row => String(row[colIndex.product] || "").trim() === selectedProduct);
+            if (allData.length === 0) {
+                throw new Error("Hiç veri bulunamadı.");
             }
 
-            // Metrikleri hesapla (akıllı quantity toplama)
-            const metrics = calculateMetrics(filteredRows, colIndex, quantityColumns);
-            const warnings = collectWarnings(headers, colIndex, quantityColumns);
-            const topProducts = getTopProducts(filteredRows, colIndex, quantityColumns);
-            const channelPerformance = getChannelPerformance(filteredRows, colIndex, quantityColumns);
-            const stockRisks = getStockRisk(filteredRows, colIndex);
-            const financeSummary = getFinanceSummary(filteredRows, colIndex);
-            const constructionData = prepareConstructionData(filteredRows, colIndex);
-
-            // Grafik önerileri
-            const chartSuggestions = getChartSuggestions(topProducts, channelPerformance, constructionData);
-
-            // Task pane özet metnini oluştur
-            let resultText = `✅ ANALİZ TAMAMLANDI!\n\n`;
-            resultText += `📄 Sayfa: ${sheet.name}\n`;
-            resultText += `📍 Aralık: ${usedRange.address}\n`;
-            resultText += `📊 Satır: ${usedRange.rowCount} | Sütun: ${usedRange.columnCount}\n\n`;
-            resultText += `🔍 Başlıklar: ${headers.join(", ")}\n\n`;
-            resultText += `📈 GENEL METRİKLER\n`;
-            resultText += `   • Toplam Adet: ${metrics.totalQuantity}\n`;
-            if (metrics.totalRevenue !== undefined) {
-                resultText += `   • Toplam Ciro: ${metrics.totalRevenue.toLocaleString()} TL\n`;
-            } else {
-                resultText += `   • Toplam Ciro: hesaplanamadı (ciro sütunu yok)\n`;
-            }
-            resultText += `   • Ortalama Adet: ${metrics.avgQuantity.toFixed(2)}\n`;
-            resultText += `   • Aykırı Değer Sayısı: ${metrics.outliers}\n\n`;
-
-            if (warnings.length) {
-                resultText += `⚠️ UYARILAR / EKSİKLER\n`;
-                warnings.forEach(w => { resultText += `   • ${w}\n`; });
-                resultText += `\n`;
-            }
-
-            if (topProducts.length) {
-                resultText += `🏆 EN ÇOK SATAN ÜRÜNLER (Adet bazında)\n`;
-                topProducts.forEach(p => { resultText += `   • ${p.product}: ${p.quantity} adet\n`; });
-                resultText += `\n`;
-            }
-
-            if (channelPerformance.length) {
-                resultText += `📢 KANAL / BAYİ PERFORMANSI (Adet bazında)\n`;
-                channelPerformance.forEach(c => { resultText += `   • ${c.channel}: ${c.quantity} adet\n`; });
-                resultText += `\n`;
-            }
-
-            if (stockRisks.length) {
-                resultText += `⚠️ STOK RİSKLİ ÜRÜNLER\n`;
-                stockRisks.forEach(r => { resultText += `   • ${r.product}: ${r.stock} adet (${r.risk})\n`; });
-                resultText += `\n`;
-            }
-
-            if (financeSummary) {
-                resultText += `💰 BÜTÇE ANALİZİ\n`;
-                resultText += `   • Toplam Bütçe: ${financeSummary.totalBudget.toLocaleString()} TL\n`;
-                resultText += `   • Toplam Gerçekleşen: ${financeSummary.totalActual.toLocaleString()} TL\n`;
-                resultText += `   • Varyans: ${financeSummary.variance.toLocaleString()} TL\n`;
-                resultText += `\n`;
-            }
-
-            if (constructionData.hasData) {
-                resultText += `🏗️ İNŞAAT PROJE ANALİZİ\n`;
-                if (constructionData.regionStats.size) {
-                    resultText += `   Bölge Dağılımı:\n`;
-                    constructionData.regionStats.forEach((stats, region) => {
-                        resultText += `      • ${region}: ${stats.count} proje\n`;
-                    });
+            // Kolonları tüm sayfalardan birleştirip en iyi eşlemeyi bul
+            const columnMapping = detectColumnsAcrossSheets(allData);
+            
+            // Her sayfayı analiz et ve veriyi topla
+            const mergedData = { rows: [], headers: [] };
+            for (const data of allData) {
+                const mapped = mapDataToColumns(data.rows, data.headers, columnMapping);
+                mergedData.rows.push(...mapped.rows);
+                if (mergedData.headers.length === 0 && mapped.headers.length) {
+                    mergedData.headers = mapped.headers;
                 }
-                if (constructionData.statusStats.size) {
-                    resultText += `   Durum Dağılımı:\n`;
-                    constructionData.statusStats.forEach((stats, status) => {
-                        resultText += `      • ${status}: ${stats.count} proje\n`;
-                    });
-                }
-                if (constructionData.phaseStats.size) {
-                    resultText += `   Faz Dağılımı:\n`;
-                    constructionData.phaseStats.forEach((stats, phase) => {
-                        resultText += `      • ${phase}: ${stats.count} proje\n`;
-                    });
-                }
-                resultText += `\n`;
             }
 
-            if (chartSuggestions.length) {
-                resultText += `📊 GRAFİK ÖNERİLERİ\n`;
-                chartSuggestions.forEach(s => { resultText += `   • ${s}\n`; });
-                resultText += `\n`;
-            }
-
-            resultText += `💡 Not: Tüm analizler bu panelde gösterilmektedir. Excel’e herhangi bir sayfa eklenmemiştir.`;
-
+            // Veri kalite denetimi
+            const qualityIssues = runQualityChecks(mergedData, columnMapping);
+            
+            // Dashboard sayfalarını oluştur
+            await createDashboardSheets(context, mergedData, columnMapping, qualityIssues);
+            
+            // Özet mesajı task pane'e yaz
+            const resultText = `✅ Analiz tamamlandı!\n\n` +
+                `📊 Toplam ${mergedData.rows.length} satır veri işlendi.\n` +
+                `🔍 Tespit edilen kolonlar: ${Object.entries(columnMapping).map(([k,v]) => `${k}: ${v || "bulunamadı"}`).join(", ")}\n` +
+                `⚠️ ${qualityIssues.length} adet veri kalite sorunu tespit edildi.\n\n` +
+                `📌 Dashboard sayfaları oluşturuldu: 00_Executive, 01_Sales, 02_Stock, 03_Finance, 04_Channel, 05_Product, 06_DataQuality`;
             showResult(resultText);
-
-            // Filtre dropdown'larını güncelle (kanal ve ürün)
-            updateFilterDropdowns(headers, dataRows, colIndex, quantityColumns);
 
             await context.sync();
         });
     } catch (error) {
         console.error("Hata:", error);
-        showError("Hata: " + error.message);
+        showError("Analiz sırasında hata: " + error.message);
     } finally {
         showLoading(false);
     }
 }
 
-// ========== YARDIMCI FONKSİYONLAR ==========
-function findColumn(headers, candidates) {
-    for (let i = 0; i < headers.length; i++) {
-        const h = headers[i].toLowerCase();
-        if (candidates.some(c => h.includes(c))) return i;
-    }
-    return -1;
+// ========== KOLON TANIMA (Fuzzy + Tip Analizi) ==========
+const ALIASES = {
+    date: ["tarih", "date", "islem_tarihi", "siparis_tarihi", "invoice_date", "month", "ay"],
+    product: ["urun", "ürün", "product", "model", "malzeme", "item", "sku", "pn", "part_number"],
+    quantity: ["adet", "miktar", "quantity", "qty", "satilan_adet", "satis_adedi", "units"],
+    revenue: ["ciro", "revenue", "sales_amount", "tutar", "net_satis", "net_satis"],
+    stock: ["stok", "stock", "inventory", "mevcut_stok"],
+    budget: ["butce", "bütçe", "budget", "plan"],
+    actual: ["gerceklesen", "gerçekleşen", "actual", "realized"],
+    cost: ["maliyet", "cost", "gider", "expense"],
+    channel: ["kanal", "bayi", "channel", "dealer", "customer", "müşteri"],
+    region: ["bolge", "bölge", "region"],
+    status: ["durum", "status", "state"],
+    phase: ["faz", "phase", "asama"],
+    projectType: ["proje tipi", "project type", "tip"],
+    safetyIncidents: ["güvenlik", "safety", "incident", "olay"]
+};
+
+function normalizeString(s) {
+    if (!s) return "";
+    return s.toLowerCase()
+        .replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ş/g, "s").replace(/ü/g, "u")
+        .replace(/[^a-z0-9]/g, " ")
+        .trim();
 }
 
-function calculateMetrics(rows, colIndex, quantityColumns) {
-    let totalQuantity = 0;
-    let totalRevenue = 0;
-    let quantities = [];
+function similarityScore(str1, str2) {
+    // basit token eşleşme oranı (gerçek projede fuzzywuzzy gibi kullanılabilir)
+    const tokens1 = str1.split(/\s+/);
+    const tokens2 = str2.split(/\s+/);
+    let match = 0;
+    for (let t of tokens1) {
+        if (tokens2.includes(t)) match++;
+    }
+    return match / Math.max(tokens1.length, tokens2.length);
+}
 
-    for (const row of rows) {
-        // Adet hesaplama: ya explicit quantity sütunu varsa, ya da quantityColumns'daki sütunların toplamı
-        let rowQty = 0;
-        if (colIndex.quantity !== -1) {
-            const q = parseFloat(row[colIndex.quantity]);
-            if (!isNaN(q)) rowQty = q;
-        } else if (quantityColumns.length) {
-            for (let col of quantityColumns) {
-                const val = parseFloat(row[col]);
-                if (!isNaN(val)) rowQty += val;
+function detectColumnsAcrossSheets(allData) {
+    const mapping = {};
+    for (let [canonical, aliases] of Object.entries(ALIASES)) {
+        mapping[canonical] = null;
+    }
+    
+    // Tüm sayfalardaki tüm sütunları topla ve en yüksek skora göre eşle
+    const allHeaders = new Set();
+    for (const data of allData) {
+        for (const h of data.headers) {
+            allHeaders.add(h);
+        }
+    }
+
+    for (let [canonical, aliases] of Object.entries(ALIASES)) {
+        let bestHeader = null;
+        let bestScore = 0;
+        for (const header of allHeaders) {
+            const normHeader = normalizeString(header);
+            for (const alias of aliases) {
+                const score = similarityScore(normHeader, normalizeString(alias));
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestHeader = header;
+                }
             }
         }
-
-        if (!isNaN(rowQty) && rowQty !== 0) {
-            totalQuantity += rowQty;
-            quantities.push(rowQty);
-        }
-
-        // Revenue hesaplama
-        if (colIndex.revenue !== -1) {
-            const rev = parseFloat(row[colIndex.revenue]);
-            if (!isNaN(rev)) totalRevenue += rev;
+        if (bestScore > 0.6) {
+            mapping[canonical] = bestHeader;
         }
     }
-
-    const avgQuantity = quantities.length ? totalQuantity / quantities.length : 0;
-    let outliers = 0;
-    if (quantities.length) {
-        const mean = avgQuantity;
-        const variance = quantities.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / quantities.length;
-        const std = Math.sqrt(variance);
-        const threshold = 2 * std;
-        outliers = quantities.filter(v => Math.abs(v - mean) > threshold).length;
-    }
-
-    return { totalQuantity, totalRevenue, avgQuantity, outliers };
+    return mapping;
 }
 
-function collectWarnings(headers, colIndex, quantityColumns) {
-    const warnings = [];
-    if (colIndex.quantity === -1 && quantityColumns.length === 0) {
-        warnings.push("⚠️ 'Adet' sütunu bulunamadı. Kanal bazlı satış sütunları da algılanamadı. Adet analizi yapılamıyor.");
-    } else if (colIndex.quantity === -1 && quantityColumns.length) {
-        warnings.push(`ℹ️ 'Adet' sütunu yok, ancak kanal sütunları (${quantityColumns.map(i => headers[i]).join(", ")}) toplanarak adet hesaplandı.`);
+function mapDataToColumns(rows, headers, mapping) {
+    const colIndex = {};
+    for (let [canonical, header] of Object.entries(mapping)) {
+        if (header) {
+            colIndex[canonical] = headers.indexOf(header);
+        } else {
+            colIndex[canonical] = -1;
+        }
     }
-    if (colIndex.revenue === -1) warnings.push("⚠️ 'Ciro/Tutar' sütunu bulunamadı. Gelir analizi yapılamıyor.");
-    if (colIndex.channel === -1) warnings.push("⚠️ 'Kanal/Bayi' sütunu bulunamadı. Kanal performansı gösterilemiyor.");
-    if (colIndex.product === -1) warnings.push("⚠️ 'Ürün' sütunu bulunamadı. Ürün bazlı analiz yapılamıyor.");
-    if (colIndex.stock === -1) warnings.push("ℹ️ 'Stok' sütunu bulunamadı. Stok riski analizi atlandı.");
-    if (colIndex.budget === -1 || colIndex.actual === -1) warnings.push("ℹ️ Bütçe/Gerçekleşen sütunları eksik. Finans analizi sınırlı.");
-    return warnings;
-}
 
-function getTopProducts(rows, colIndex, quantityColumns, topN = 5) {
-    if (colIndex.product === -1) return [];
-    const productMap = new Map();
+    const mappedRows = [];
     for (const row of rows) {
-        const prod = String(row[colIndex.product] || "").trim();
-        if (!prod) continue;
-        let qty = 0;
-        if (colIndex.quantity !== -1) {
-            const q = parseFloat(row[colIndex.quantity]);
-            if (!isNaN(q)) qty = q;
-        } else if (quantityColumns.length) {
-            for (let col of quantityColumns) {
-                const val = parseFloat(row[col]);
-                if (!isNaN(val)) qty += val;
+        const mapped = {};
+        for (let [canonical, idx] of Object.entries(colIndex)) {
+            if (idx !== -1 && idx < row.length) {
+                let val = row[idx];
+                if (canonical === "date") {
+                    val = parseDate(val);
+                } else if (["quantity", "revenue", "stock", "budget", "actual", "cost"].includes(canonical)) {
+                    val = parseNumber(val);
+                } else {
+                    val = val !== undefined && val !== null ? String(val).trim() : "";
+                }
+                mapped[canonical] = val;
+            } else {
+                mapped[canonical] = canonical === "date" ? null : "";
             }
         }
-        if (qty > 0) {
-            productMap.set(prod, (productMap.get(prod) || 0) + qty);
-        }
+        mappedRows.push(mapped);
     }
-    return Array.from(productMap.entries())
-        .map(([product, quantity]) => ({ product, quantity }))
-        .sort((a,b) => b.quantity - a.quantity)
-        .slice(0, topN);
+    return { rows: mappedRows, headers: Object.keys(mapping) };
 }
 
-function getChannelPerformance(rows, colIndex, quantityColumns) {
-    // Kanal performansı için, ya doğrudan channel sütunu varsa ya da quantityColumns'daki sütunların her biri kanal ise
-    if (colIndex.channel !== -1 && colIndex.quantity !== -1) {
+function parseDate(val) {
+    if (!val) return null;
+    if (val instanceof Date) return val;
+    const str = String(val);
+    let day, month, year;
+    if (str.includes(".")) {
+        [day, month, year] = str.split(".");
+    } else if (str.includes("-")) {
+        [year, month, day] = str.split("-");
+    } else {
+        return null;
+    }
+    const d = new Date(year, month-1, day);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function parseNumber(val) {
+    if (val === undefined || val === null) return NaN;
+    if (typeof val === "number") return val;
+    let s = String(val).replace(/[^0-9,\.\-]/g, "").replace(",", ".");
+    const n = parseFloat(s);
+    return isNaN(n) ? NaN : n;
+}
+
+// ========== VERİ KALİTE KONTROLLERİ ==========
+function runQualityChecks(mergedData, mapping) {
+    const issues = [];
+    const rows = mergedData.rows;
+    if (rows.length === 0) return issues;
+
+    // Eksik değerler
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        for (let col of Object.keys(row)) {
+            if (row[col] === undefined || row[col] === null || row[col] === "") {
+                issues.push({
+                    sheet: "Tüm veri",
+                    row: i+2,
+                    column: col,
+                    issue: "Eksik değer",
+                    severity: row[col] === null ? "medium" : "low",
+                    suggestion: "Hücreyi doldurun veya varsayılan değer atayın."
+                });
+            }
+        }
+    }
+
+    // Tarih hataları
+    if (mapping.date) {
+        for (let i = 0; i < rows.length; i++) {
+            const d = rows[i].date;
+            if (d === null && rows[i].date !== undefined && rows[i].date !== "") {
+                issues.push({
+                    sheet: "Tüm veri",
+                    row: i+2,
+                    column: mapping.date,
+                    issue: "Geçersiz tarih formatı",
+                    severity: "medium",
+                    suggestion: "Tarih formatını GG.AA.YYYY veya YYYY-AA-GG olarak düzeltin."
+                });
+            }
+        }
+    }
+
+    // Sayısal sütunlarda NaN
+    const numericCols = ["quantity", "revenue", "stock", "budget", "actual", "cost"];
+    for (let col of numericCols) {
+        if (mapping[col]) {
+            for (let i = 0; i < rows.length; i++) {
+                const val = rows[i][col];
+                if (val !== undefined && val !== null && val !== "" && isNaN(val)) {
+                    issues.push({
+                        sheet: "Tüm veri",
+                        row: i+2,
+                        column: mapping[col],
+                        issue: "Sayısal olmayan değer",
+                        severity: "high",
+                        suggestion: "Değeri sayıya çevirin (virgül, TL gibi işaretleri temizleyin)."
+                    });
+                }
+            }
+        }
+    }
+
+    // Kopya satırlar (basit)
+    const seen = new Set();
+    for (let i = 0; i < rows.length; i++) {
+        const key = JSON.stringify(rows[i]);
+        if (seen.has(key)) {
+            issues.push({
+                sheet: "Tüm veri",
+                row: i+2,
+                column: "tüm sütunlar",
+                issue: "Tamamen kopya satır",
+                severity: "low",
+                suggestion: "Tekrar eden satırı silin."
+            });
+        } else {
+            seen.add(key);
+        }
+    }
+
+    // SKU/EAN uyuşmazlığı (eğer hem product hem de başka bir tanımlayıcı varsa)
+    if (mapping.product && mapping.sku) {
+        const groups = new Map();
+        for (let i = 0; i < rows.length; i++) {
+            const sku = rows[i].sku;
+            const ean = rows[i].ean;
+            if (sku && ean) {
+                if (!groups.has(sku)) groups.set(sku, new Set());
+                groups.get(sku).add(ean);
+            }
+        }
+        for (let [sku, eans] of groups.entries()) {
+            if (eans.size > 1) {
+                issues.push({
+                    sheet: "Tüm veri",
+                    row: -1,
+                    column: mapping.sku,
+                    issue: "Aynı SKU'ya birden fazla EAN atanmış",
+                    severity: "high",
+                    suggestion: `SKU ${sku} için EAN'leri birleştirin veya düzeltin.`
+                });
+            }
+        }
+    }
+
+    return issues;
+}
+
+// ========== DASHBOARD SAYFALARI OLUŞTURMA ==========
+async function createDashboardSheets(context, data, mapping, issues) {
+    // Önceki dashboard sayfalarını temizle (isteğe bağlı)
+    const sheetNames = ["00_Executive", "01_Sales", "02_Stock", "03_Finance", "04_Channel", "05_Product", "06_DataQuality"];
+    for (let name of sheetNames) {
+        const sheet = context.workbook.worksheets.getItemOrNullObject(name);
+        context.load(sheet, "name");
+        await context.sync();
+        if (sheet.name === name) {
+            sheet.delete();
+        }
+    }
+    await context.sync();
+
+    // Executive
+    await createExecutiveSheet(context, data, mapping, issues);
+    // Sales
+    await createSalesSheet(context, data, mapping);
+    // Stock
+    await createStockSheet(context, data, mapping);
+    // Finance
+    await createFinanceSheet(context, data, mapping);
+    // Channel
+    await createChannelSheet(context, data, mapping);
+    // Product
+    await createProductSheet(context, data, mapping);
+    // Data Quality
+    await createQualitySheet(context, issues);
+}
+
+async function createExecutiveSheet(context, data, mapping, issues) {
+    const sheet = context.workbook.worksheets.add("00_Executive");
+    sheet.getRange("A1").values = [["EXECUTIVE DASHBOARD - ÖZET"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
+
+    // KPI'lar
+    const totalQty = data.rows.reduce((sum, r) => sum + (isNaN(r.quantity) ? 0 : r.quantity), 0);
+    const totalRevenue = data.rows.reduce((sum, r) => sum + (isNaN(r.revenue) ? 0 : r.revenue), 0);
+    const avgQty = data.rows.length ? totalQty / data.rows.length : 0;
+
+    sheet.getRange(row, 0).values = [["Toplam Adet", totalQty]];
+    sheet.getRange(row+1, 0).values = [["Toplam Ciro (TL)", totalRevenue]];
+    sheet.getRange(row+2, 0).values = [["Ortalama Adet", avgQty.toFixed(2)]];
+    sheet.getRange(row+3, 0).values = [["Kalite Sorunu Sayısı", issues.length]];
+    row += 5;
+
+    // Öne çıkan ürünler
+    if (mapping.product && mapping.quantity) {
+        const prodMap = new Map();
+        for (const r of data.rows) {
+            if (r.product && !isNaN(r.quantity)) {
+                prodMap.set(r.product, (prodMap.get(r.product) || 0) + r.quantity);
+            }
+        }
+        const topProducts = Array.from(prodMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        sheet.getRange(row, 0).values = [["En Çok Satan Ürünler"]];
+        row++;
+        for (let p of topProducts) {
+            sheet.getRange(row, 0).values = [[p[0], p[1]]];
+            row++;
+        }
+        row++;
+    }
+
+    // Grafik önerileri
+    sheet.getRange(row, 0).values = [["Grafik Önerileri"]];
+    row++;
+    sheet.getRange(row, 0).values = [["• Satış trendi için çizgi grafik"]];
+    sheet.getRange(row+1, 0).values = [["• Kanal dağılımı için pasta grafik"]];
+    row += 2;
+
+    sheet.getRange("A:C").format.autofitColumns();
+}
+
+async function createSalesSheet(context, data, mapping) {
+    const sheet = context.workbook.worksheets.add("01_Sales");
+    sheet.getRange("A1").values = [["SATIŞ ANALİZİ"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
+
+    if (mapping.product && mapping.quantity) {
+        const prodMap = new Map();
+        for (const r of data.rows) {
+            if (r.product && !isNaN(r.quantity)) {
+                prodMap.set(r.product, (prodMap.get(r.product) || 0) + r.quantity);
+            }
+        }
+        const topProducts = Array.from(prodMap.entries()).sort((a,b)=>b[1]-a[1]);
+        sheet.getRange(row, 0).values = [["Ürün Bazlı Satış Adetleri"]];
+        row++;
+        for (let p of topProducts) {
+            sheet.getRange(row, 0).values = [[p[0], p[1]]];
+            row++;
+        }
+        // Grafik ekle
+        const chartRange = sheet.getRange("A3").getExtendedRange(topProducts.length, 2);
+        const chart = sheet.charts.add("columnClustered", chartRange, "auto");
+        chart.title.text = "Ürün Satış Adetleri";
+        chart.legend.position = "bottom";
+    } else {
+        sheet.getRange(row, 0).values = [["Ürün veya adet sütunu bulunamadı."]];
+    }
+    sheet.getRange("A:C").format.autofitColumns();
+}
+
+async function createStockSheet(context, data, mapping) {
+    const sheet = context.workbook.worksheets.add("02_Stock");
+    sheet.getRange("A1").values = [["STOK ANALİZİ"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
+
+    if (mapping.product && mapping.stock) {
+        const stocks = [];
+        for (const r of data.rows) {
+            if (r.product && !isNaN(r.stock)) {
+                stocks.push({ product: r.product, stock: r.stock });
+            }
+        }
+        const risk = stocks.filter(s => s.stock < 20).sort((a,b)=>a.stock-b.stock);
+        sheet.getRange(row, 0).values = [["Kritik Stok (<20)"]];
+        row++;
+        for (let r of risk) {
+            sheet.getRange(row, 0).values = [[r.product, r.stock]];
+            row++;
+        }
+    } else {
+        sheet.getRange(row, 0).values = [["Stok veya ürün sütunu bulunamadı."]];
+    }
+    sheet.getRange("A:C").format.autofitColumns();
+}
+
+async function createFinanceSheet(context, data, mapping) {
+    const sheet = context.workbook.worksheets.add("03_Finance");
+    sheet.getRange("A1").values = [["FİNANS ANALİZİ"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
+
+    if (mapping.budget && mapping.actual) {
+        let totalBudget = 0, totalActual = 0;
+        for (const r of data.rows) {
+            if (!isNaN(r.budget)) totalBudget += r.budget;
+            if (!isNaN(r.actual)) totalActual += r.actual;
+        }
+        sheet.getRange(row, 0).values = [["Toplam Bütçe", totalBudget]];
+        sheet.getRange(row+1, 0).values = [["Toplam Gerçekleşen", totalActual]];
+        sheet.getRange(row+2, 0).values = [["Varyans", totalActual - totalBudget]];
+        if (totalActual > totalBudget) sheet.getRange(row+2, 1).format.font.color = "green";
+        else if (totalActual < totalBudget) sheet.getRange(row+2, 1).format.font.color = "red";
+    } else {
+        sheet.getRange(row, 0).values = [["Bütçe veya gerçekleşen sütunu bulunamadı."]];
+    }
+    sheet.getRange("A:C").format.autofitColumns();
+}
+
+async function createChannelSheet(context, data, mapping) {
+    const sheet = context.workbook.worksheets.add("04_Channel");
+    sheet.getRange("A1").values = [["KANAL / BAYİ PERFORMANSI"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
+
+    if (mapping.channel && mapping.quantity) {
         const channelMap = new Map();
-        for (const row of rows) {
-            const channel = String(row[colIndex.channel] || "").trim();
-            if (!channel) continue;
-            const qty = parseFloat(row[colIndex.quantity]);
-            if (!isNaN(qty)) channelMap.set(channel, (channelMap.get(channel) || 0) + qty);
-        }
-        return Array.from(channelMap.entries())
-            .map(([channel, quantity]) => ({ channel, quantity }))
-            .sort((a,b) => b.quantity - a.quantity);
-    }
-    // Alternatif: quantityColumns'daki her sütun bir kanaldır ve satır bazında toplamı yok, kanal bazlı toplam yapılır
-    if (quantityColumns.length) {
-        const channelMap = new Map();
-        for (let idx of quantityColumns) {
-            const channelName = headers[idx];
-            let total = 0;
-            for (const row of rows) {
-                const val = parseFloat(row[idx]);
-                if (!isNaN(val)) total += val;
-            }
-            if (total > 0) channelMap.set(channelName, total);
-        }
-        return Array.from(channelMap.entries())
-            .map(([channel, quantity]) => ({ channel, quantity }))
-            .sort((a,b) => b.quantity - a.quantity);
-    }
-    return [];
-}
-
-function getStockRisk(rows, colIndex) {
-    if (colIndex.stock === -1 || colIndex.product === -1) return [];
-    const riskMap = [];
-    for (const row of rows) {
-        const product = String(row[colIndex.product] || "").trim();
-        const stock = parseFloat(row[colIndex.stock]);
-        if (product && !isNaN(stock)) {
-            riskMap.push({ product, stock, risk: stock < 20 ? "Kritik" : (stock < 50 ? "Düşük" : "Yeterli") });
-        }
-    }
-    return riskMap.filter(r => r.risk !== "Yeterli").sort((a,b) => a.stock - b.stock);
-}
-
-function getFinanceSummary(rows, colIndex) {
-    if (colIndex.budget === -1 || colIndex.actual === -1) return null;
-    let totalBudget = 0, totalActual = 0;
-    for (const row of rows) {
-        const b = parseFloat(row[colIndex.budget]);
-        const a = parseFloat(row[colIndex.actual]);
-        if (!isNaN(b)) totalBudget += b;
-        if (!isNaN(a)) totalActual += a;
-    }
-    return { totalBudget, totalActual, variance: totalActual - totalBudget };
-}
-
-function prepareConstructionData(rows, colIndex) {
-    const result = { hasData: false, regionStats: new Map(), statusStats: new Map(), phaseStats: new Map(), projectTypeStats: new Map() };
-    let budgetFound = false, costFound = false;
-    for (const row of rows) {
-        let budget = 0, cost = 0;
-        if (colIndex.budget !== -1) {
-            const b = parseFloat(row[colIndex.budget]);
-            if (!isNaN(b)) { budget = b; budgetFound = true; }
-        }
-        if (colIndex.cost !== -1) {
-            const c = parseFloat(row[colIndex.cost]);
-            if (!isNaN(c)) { cost = c; costFound = true; }
-        }
-        if (colIndex.region !== -1) {
-            const region = String(row[colIndex.region] || "").trim();
-            if (region) {
-                const stats = result.regionStats.get(region) || { count: 0, budget: 0, cost: 0 };
-                stats.count++;
-                stats.budget += budget;
-                stats.cost += cost;
-                result.regionStats.set(region, stats);
+        for (const r of data.rows) {
+            if (r.channel && !isNaN(r.quantity)) {
+                channelMap.set(r.channel, (channelMap.get(r.channel) || 0) + r.quantity);
             }
         }
-        if (colIndex.status !== -1) {
-            const status = String(row[colIndex.status] || "").trim();
-            if (status) {
-                const stats = result.statusStats.get(status) || { count: 0 };
-                stats.count++;
-                result.statusStats.set(status, stats);
-            }
+        const channels = Array.from(channelMap.entries()).sort((a,b)=>b[1]-a[1]);
+        sheet.getRange(row, 0).values = [["Kanal", "Toplam Adet"]];
+        row++;
+        for (let c of channels) {
+            sheet.getRange(row, 0).values = [[c[0], c[1]]];
+            row++;
         }
-        if (colIndex.phase !== -1) {
-            const phase = String(row[colIndex.phase] || "").trim();
-            if (phase) {
-                const stats = result.phaseStats.get(phase) || { count: 0 };
-                stats.count++;
-                result.phaseStats.set(phase, stats);
-            }
-        }
-        if (colIndex.projectType !== -1) {
-            const type = String(row[colIndex.projectType] || "").trim();
-            if (type) {
-                const stats = result.projectTypeStats.get(type) || { count: 0, cost: 0 };
-                stats.count++;
-                stats.cost += cost;
-                result.projectTypeStats.set(type, stats);
-            }
-        }
+        // Grafik
+        const chartRange = sheet.getRange("A3").getExtendedRange(channels.length, 2);
+        const chart = sheet.charts.add("pie", chartRange, "auto");
+        chart.title.text = "Kanal Dağılımı";
+    } else {
+        sheet.getRange(row, 0).values = [["Kanal veya adet sütunu bulunamadı."]];
     }
-    result.hasData = (budgetFound || costFound) && (result.regionStats.size > 0 || result.statusStats.size > 0 || result.phaseStats.size > 0);
-    return result;
+    sheet.getRange("A:C").format.autofitColumns();
 }
 
-function getChartSuggestions(topProducts, channelPerformance, constructionData) {
-    const suggestions = [];
-    if (topProducts.length) {
-        suggestions.push("Top ürünler için sütun grafik kullanarak satış adetlerini karşılaştırabilirsiniz.");
-    }
-    if (channelPerformance.length) {
-        suggestions.push("Kanal/bayi dağılımını göstermek için pasta grafik etkili olacaktır.");
-    }
-    if (constructionData.hasData) {
-        if (constructionData.regionStats.size) {
-            suggestions.push("Projelerin bölgelere göre dağılımını pasta grafikle görselleştirebilirsiniz.");
+async function createProductSheet(context, data, mapping) {
+    const sheet = context.workbook.worksheets.add("05_Product");
+    sheet.getRange("A1").values = [["ÜRÜN ANALİZİ"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
+
+    if (mapping.product && mapping.quantity) {
+        const prodMap = new Map();
+        for (const r of data.rows) {
+            if (r.product && !isNaN(r.quantity)) {
+                prodMap.set(r.product, (prodMap.get(r.product) || 0) + r.quantity);
+            }
         }
-        if (constructionData.statusStats.size) {
-            suggestions.push("Proje durumlarını sütun grafikle izleyebilirsiniz.");
+        const products = Array.from(prodMap.entries()).sort((a,b)=>b[1]-a[1]);
+        sheet.getRange(row, 0).values = [["Ürün", "Toplam Adet"]];
+        row++;
+        for (let p of products) {
+            sheet.getRange(row, 0).values = [[p[0], p[1]]];
+            row++;
         }
-        if (constructionData.phaseStats.size) {
-            suggestions.push("Proje fazlarını çubuk grafikle karşılaştırabilirsiniz.");
-        }
+    } else {
+        sheet.getRange(row, 0).values = [["Ürün veya adet sütunu bulunamadı."]];
     }
-    if (suggestions.length === 0) {
-        suggestions.push("Grafik önerisi için yeterli veri bulunamadı (ürün, kanal veya inşaat verisi yok).");
-    }
-    return suggestions;
+    sheet.getRange("A:C").format.autofitColumns();
 }
 
-function updateFilterDropdowns(headers, dataRows, colIndex, quantityColumns) {
-    // Kanal dropdown: ya channel sütunu varsa ondan al, yoksa quantityColumns'daki sütun isimlerini kanal olarak göster
-    if (colIndex.channel !== -1) {
-        const channels = [...new Set(dataRows.map(row => String(row[colIndex.channel] || "").trim()).filter(v => v))];
-        const channelSelect = document.getElementById("channelFilter");
-        if (channelSelect) channelSelect.innerHTML = '<option value="">Tümü</option>' + channels.map(c => `<option value="${c}">${c}</option>`).join("");
-    } else if (quantityColumns.length) {
-        // Kanal sütunu yoksa, quantityColumns'daki sütun isimlerini kanal olarak listele
-        const channelSelect = document.getElementById("channelFilter");
-        if (channelSelect) {
-            channelSelect.innerHTML = '<option value="">Tümü</option>' + quantityColumns.map(idx => `<option value="${headers[idx]}">${headers[idx]}</option>`).join("");
-        }
-    }
+async function createQualitySheet(context, issues) {
+    const sheet = context.workbook.worksheets.add("06_DataQuality");
+    sheet.getRange("A1").values = [["VERİ KALİTE RAPORU"]];
+    sheet.getRange("A1").format.font.bold = true;
+    let row = 2;
 
-    // Ürün dropdown
-    if (colIndex.product !== -1) {
-        const products = [...new Set(dataRows.map(row => String(row[colIndex.product] || "").trim()).filter(v => v))];
-        const productSelect = document.getElementById("productFilter");
-        if (productSelect) productSelect.innerHTML = '<option value="">Tümü</option>' + products.map(p => `<option value="${p}">${p}</option>`).join("");
+    sheet.getRange(row, 0).values = [["Sayfa", "Satır", "Sütun", "Sorun", "Şiddet", "Öneri"]];
+    row++;
+    for (let issue of issues) {
+        sheet.getRange(row, 0).values = [[issue.sheet, issue.row, issue.column, issue.issue, issue.severity, issue.suggestion]];
+        row++;
     }
+    sheet.getRange("A:F").format.autofitColumns();
 }
 
-// UI yardımcıları
+// ========== UI YARDIMCILARI ==========
 function showLoading(show) {
     const loading = document.getElementById("loading");
     const analyzeBtn = document.getElementById("analyzeBtn");
     if (loading) loading.classList.toggle("hidden", !show);
     if (analyzeBtn) {
         analyzeBtn.disabled = show;
-        analyzeBtn.textContent = show ? "⏳ Analiz Ediliyor..." : "📊 Veriyi Analiz Et";
+        analyzeBtn.textContent = show ? "⏳ Analiz Ediliyor..." : "📊 Analiz Başlat";
     }
 }
 function showResult(text) {
