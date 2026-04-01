@@ -5,11 +5,11 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>2c79b35a-0d62-4f5c-a9b7-5bf5f2221c31</Id>
-  <Version>1.0.0.0</Version>
+  <Version>2.0.0.0</Version>
   <ProviderName>AI Dashboard</ProviderName>
   <DefaultLocale>tr-TR</DefaultLocale>
-  <DisplayName DefaultValue="AI Dashboard V5" />
-  <Description DefaultValue="Excel verilerini analiz eder." />
+  <DisplayName DefaultValue="AI Dashboard V6" />
+  <Description DefaultValue="Excel verilerini analiz eder, dashboard ve kalite raporu oluşturur." />
   <IconUrl DefaultValue="https://placehold.co/32x32" />
   <HighResolutionIconUrl DefaultValue="https://placehold.co/80x80" />
   <Hosts>
@@ -33,22 +33,12 @@
             <OfficeTab id="TabHome">
               <Group id="AIGroup">
                 <Label resid="GroupLabel" />
-                <Icon>
-                  <bt:Image size="16" resid="Icon.16" />
-                  <bt:Image size="32" resid="Icon.32" />
-                  <bt:Image size="80" resid="Icon.80" />
-                </Icon>
                 <Control xsi:type="Button" id="ShowTaskpaneButton">
                   <Label resid="TaskpaneButton.Label" />
                   <Supertip>
                     <Title resid="TaskpaneButton.Label" />
                     <Description resid="TaskpaneButton.Tooltip" />
                   </Supertip>
-                  <Icon>
-                    <bt:Image size="16" resid="Icon.16" />
-                    <bt:Image size="32" resid="Icon.32" />
-                    <bt:Image size="80" resid="Icon.80" />
-                  </Icon>
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>ButtonId1</TaskpaneId>
                     <SourceLocation resid="Taskpane.Url" />
@@ -61,17 +51,12 @@
       </Host>
     </Hosts>
     <Resources>
-      <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://placehold.co/16x16" />
-        <bt:Image id="Icon.32" DefaultValue="https://placehold.co/32x32" />
-        <bt:Image id="Icon.80" DefaultValue="https://placehold.co/80x80" />
-      </bt:Images>
       <bt:Urls>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
         <bt:Url id="Taskpane.Url" DefaultValue="https://ahmetfidan58088-ctrl.github.io/Deneme/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="AI Dashboard V5" />
+        <bt:String id="GetStarted.Title" DefaultValue="AI Dashboard V6" />
         <bt:String id="GroupLabel" DefaultValue="AI Dashboard" />
         <bt:String id="TaskpaneButton.Label" DefaultValue="AI Dashboard Aç" />
       </bt:ShortStrings>
